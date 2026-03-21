@@ -26,6 +26,20 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run tauri build
+
+      - name: Debug bundles macOS
+        if: matrix.platform == 'macos-latest'
+        run: find src-tauri/target/release/bundle -type f
+
+      - name: Debug bundles Linux
+        if: matrix.platform == 'ubuntu-22.04'
+        run: find src-tauri/target/release/bundle -type f
+
+      - name: Debug bundles Windows
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: Get-ChildItem -Recurse src-tauri\target\release\bundle
+
       - name: Upload macOS
         if: matrix.platform == 'macos-latest'
         uses: softprops/action-gh-release@v2
@@ -33,6 +47,7 @@ jobs:
           files: |
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/macos/*.app.tar.gz
+
       - name: Upload Linux
         if: matrix.platform == 'ubuntu-22.04'
         uses: softprops/action-gh-release@v2
@@ -40,6 +55,7 @@ jobs:
           files: |
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/rpm/*.rpm
+
       - name: Upload Windows
         if: matrix.platform == 'windows-latest'
         uses: softprops/action-gh-release@v2
@@ -47,3 +63,4 @@ jobs:
           files: |
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
+
