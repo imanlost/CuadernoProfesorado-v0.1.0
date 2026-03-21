@@ -1,0 +1,26 @@
+{
+  "productName": "CuadernoDocente",
+  "version": "0.1.0",
+  "identifier": "com.imanol.lostale.cuaderno-docente",
+  "build": {
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Cuaderno Docente",
+        "width": 1200,
+        "height": 800
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb"]
+  }
+}
