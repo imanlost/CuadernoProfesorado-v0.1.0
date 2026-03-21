@@ -30,4 +30,4 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Cuaderno Docente ${{ github.ref_name }}'
           releaseDraft: false
-          tauriScript: npx tauri
+          args: --verbose
