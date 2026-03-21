@@ -29,7 +29,8 @@ jobs:
 
       - name: Debug bundles macOS
         if: matrix.platform == 'macos-latest'
-        run: find src-tauri/target/release/bundle -type f
+        run: find src-tauri/target -name "*.dmg" -o -name "*.app.tar.gz" 2>/dev/null || echo "No encontrado"
+f
 
       - name: Debug bundles Linux
         if: matrix.platform == 'ubuntu-22.04'
@@ -40,13 +41,13 @@ jobs:
         shell: pwsh
         run: Get-ChildItem -Recurse src-tauri\target\release\bundle
 
-      - name: Upload macOS
+      name: Upload macOS
         if: matrix.platform == 'macos-latest'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/**/bundle/dmg/*.dmg
+            src-tauri/target/**/bundle/macos/*.app.tar.gz
 
       - name: Upload Linux
         if: matrix.platform == 'ubuntu-22.04'
