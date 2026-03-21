@@ -106,7 +106,7 @@ const GradeEntryModal: React.FC<GradeEntryModalProps> = (props) => {
 
   const handleCheckAll = () => {
     if (!evaluationTool || evaluationTool.type !== 'checklist') return;
-    const newResults: Record<string, boolean> = { ...toolResults };
+    const newResults: Record<string, boolean> = Object.fromEntries(Object.entries(toolResults).map(([k, v]) => [k, Boolean(v)]));
     evaluationTool.items.forEach(item => {
       newResults[item.id] = true;
     });
