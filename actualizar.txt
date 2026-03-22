@@ -135,37 +135,39 @@ Luego ejecuta npm run tauri dev de nuevo.
 
 ## 📦 COMPILAR INSTALADORES CON GITHUB ACTIONS
 
-### ▶️ PASO 1 — Sube los cambios y lanza la compilación automáticamente
+### ▶️ PASO 1 — Sube los cambios y crea un tag de versión
 
 cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno
 git add .
-git commit -m "Actualización vX.X"
+git commit -m "Actualización v1.1"
+git tag v1.1
 git push
+git push --tags
 
-⚠️ El git push lanza automáticamente el workflow de compilación.
-No hay que hacer nada más en GitHub Actions.
+⚠️ El tag vX.X es lo que dispara la compilación.
+Sin tag → no se compila nada.
 
 ---
 
 ### ▶️ PASO 2 — Descarga los instaladores
 
-1. Ve a tu repositorio en GitHub
-2. Haz clic en la pestaña "Actions"
-3. Espera a que el workflow termine (tarda ~15-20 minutos)
-4. Haz clic en el workflow completado
-5. Baja hasta la sección "Artifacts"
-6. Descarga:
+1. Ve a https://github.com/imanlost/CuadernoProfesorado-v0.1.0/releases
+2. Espera ~20 minutos a que aparezca la nueva release
+3. Descarga directamente:
    - .deb  → Linux
    - .msi  → Windows
+   - .exe  → Windows (alternativo)
    - .dmg  → macOS
 
 ---
 
 ### ✅ RESUMEN COMPILACIÓN
 
-1. git add . && git commit -m "mensaje" && git push
-2. GitHub → Actions → esperar ~20 min
-3. Descargar artifacts
+1. git add . && git commit -m "mensaje"
+2. git tag vX.X
+3. git push && git push --tags
+4. Esperar ~20 min
+5. Descargar desde GitHub → Releases
 
 
 
