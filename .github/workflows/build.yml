@@ -37,17 +37,15 @@ jobs:
       - name: Debug bundles macOS
         if: matrix.platform == 'macos-latest'
         run: |
-          echo "=== Buscando DMG ==="
-          find src-tauri/target -name "*.dmg" 2>/dev/null || echo "Sin DMG"
-          echo "=== Todo en target ==="
-          ls -la src-tauri/target/ 2>/dev/null || echo "Sin target"
+          echo "=== aarch64 bundle ==="
+          find src-tauri/target/aarch64-apple-darwin -type f 2>/dev/null || echo "Sin aarch64"
       - name: Upload macOS
         if: matrix.platform == 'macos-latest'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src-tauri/target/**/bundle/dmg/*.dmg
-            src-tauri/target/**/bundle/macos/*.app.tar.gz
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
       - name: Upload Linux
         if: matrix.platform == 'ubuntu-22.04'
         uses: softprops/action-gh-release@v2
