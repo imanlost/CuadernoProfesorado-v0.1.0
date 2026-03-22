@@ -25,27 +25,36 @@ Extrae el zip en el Escritorio o en Descargas.
 ZIP=~/Desktop/cuadernoprofesorado
 PROYECTO=~/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno/src
 
-cp $ZIP/App.tsx $PROYECTO/
 cp $ZIP/constants.ts $PROYECTO/
 cp $ZIP/types.ts $PROYECTO/
 cp -r $ZIP/components/ $PROYECTO/
 cp -r $ZIP/services/ $PROYECTO/
 
-⚠️ Cambia NOMBRE-ZIP por el nombre real de tu carpeta extraída.
+⚠️ App.tsx y SettingsModal.tsx NO se copian del zip (ver más abajo).
 Cuando pregunte si sobreescribir → Sí.
 
 ---
 
 ### ❌ NUNCA copies del zip estos archivos
 
-- package.json         → tiene las dependencias de Tauri
+- package.json              → tiene las dependencias de Tauri
 - package-lock.json
-- vite.config.ts       → tiene el puerto 1420 para Tauri
+- vite.config.ts            → tiene el puerto 1420 para Tauri
 - tsconfig.json
-- index.html           → versión adaptada para Tauri
+- index.html                → versión adaptada para Tauri
 - index.tsx
 - metadata.json
 - README.md, CHANGELOG.md, screenshot/
+- src/App.tsx               → ⚠️ NUEVO: tiene imports y lógica Tauri
+- src/components/SettingsModal.tsx  → ⚠️ NUEVO: tiene backup nativo Tauri
+
+---
+
+### ⚠️ SI AI STUDIO CAMBIA App.tsx O SettingsModal.tsx
+
+Solo mezcla los cambios manualmente (no copies el archivo entero).
+Busca la función que cambió y cópiala solo a ella.
+Pide ayuda si no sabes qué ha cambiado.
 
 ---
 
@@ -129,9 +138,12 @@ Luego ejecuta npm run tauri dev de nuevo.
 ### ✅ RESUMEN RÁPIDO
 
 1. Extrae zip en el Escritorio
-2. Copia App.tsx, constants.ts, types.ts, components/, services/ → a la carpeta src/ del proyecto
+2. Copia constants.ts, types.ts, components/, services/ → a src/ del proyecto
+   (NO copies App.tsx ni SettingsModal.tsx)
 3. npm install
 4. npm run tauri dev
+
+---
 
 ## 📦 COMPILAR INSTALADORES CON GITHUB ACTIONS
 
@@ -139,8 +151,8 @@ Luego ejecuta npm run tauri dev de nuevo.
 
 cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno
 git add .
-git commit -m "Actualización v1.1"
-git tag v1.1
+git commit -m "Actualización v1.X"
+git tag v1.X
 git push
 git push --tags
 
@@ -164,10 +176,9 @@ Sin tag → no se compila nada.
 ### ✅ RESUMEN COMPILACIÓN
 
 1. git add . && git commit -m "mensaje"
-2. git tag vX.X
+2. git tag v1.X
 3. git push && git push --tags
 4. Esperar ~20 min
 5. Descargar desde GitHub → Releases
-
 
 

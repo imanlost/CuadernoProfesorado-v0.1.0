@@ -1,5 +1,3 @@
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeFile } from "@tauri-apps/plugin-fs";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Modal from './Modal';
@@ -953,21 +951,29 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
     };
 
     const handleExportClick = async () => {
-        const data = exportDatabase();
-        if (!data) return;
-        try {
-            const filePath = await save({
-                defaultPath: `cuaderno_backup_${new Date().toISOString().split("T")[0]}.db`,
-                filters: [{ name: "SQLite Database", extensions: ["db"] }]
-            });
-            if (filePath) {
-                await writeFile(filePath, data);
-                alert("✅ Copia guardada en: " + filePath);
-            }
-        } catch (err) {
-            alert("❌ Error al guardar: " + err);
+    const data = exportDatabase();
+    if (!data) return;
+    try {
+        const { save } = await import("@tauri-apps/plugin-dialog");
+        const { writeFile } = await import("@tauri-apps/plugin-fs");
+        const { documentDir, join } = await import("@tauri-apps/api/path");
+
+        const docDir = await documentDir();
+        const defaultFolder = await join(docDir, "CuadernoProfesorado");
+        const fecha = new Date().toISOString().split("T")[0];
+
+        const filePath = await save({
+            defaultPath: await join(defaultFolder, `cuaderno_backup_${fecha}.db`),
+            filters: [{ name: "SQLite Database", extensions: ["db"] }]
+        });
+        if (filePath) {
+            await writeFile(filePath, data);
+            alert("✅ Copia guardada en: " + filePath);
         }
-    };
+    } catch (err) {
+        alert("❌ Error al guardar: " + err);
+    }
+};
 
     const isFSAASupported = 'showOpenFilePicker' in window;
 
@@ -975,49 +981,6 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
         <div className="space-y-6">
             <h3 className="text-xl font-bold text-slate-800">Copia de Seguridad y Datos</h3>
 
-             {/* Local File Sync Section */}
-            <div className="p-4 border rounded-lg bg-indigo-50 border-indigo-200">
-                <div className="flex justify-between items-start mb-2">
-                    <div>
-                        <h4 className="font-bold text-indigo-800 flex items-center gap-2">
-                            <ComputerDesktopIcon className="w-5 h-5"/>
-                            Modo Archivo Local (Sincronización)
-                        </h4>
-                        <p className="text-sm text-indigo-700 mt-1">
-                            Abre un archivo directamente desde tu disco duro (ej. en tu carpeta de Dropbox/Drive). 
-                            La aplicación guardará los cambios automáticamente en ese archivo.
-                        </p>
-                    </div>
-                    {localFileName && (
-                        <span className="bg-indigo-200 text-indigo-800 text-xs font-semibold px-2 py-1 rounded-full border border-indigo-300">
-                            Conectado: {localFileName}
-                        </span>
-                    )}
-                </div>
-
-                {!isFSAASupported ? (
-                    <div className="text-sm text-amber-800 bg-amber-50 p-3 rounded-md border border-amber-200 mt-3 space-y-2">
-                         <p className="font-bold">⚠️ Esta función requiere un navegador compatible.</p>
-                         <p>Firefox y Safari bloquean el acceso directo al sistema de archivos por seguridad. Para usar la sincronización automática, debes usar <strong>Chrome, Edge o Opera</strong> en un ordenador.</p>
-                         <p className="text-xs mt-1 italic">Si no puedes cambiar de navegador, utiliza los botones de "Exportar/Importar Copia" de abajo manualmente.</p>
-                    </div>
-                ) : (
-                    <div className="mt-4 flex gap-3">
-                         <button 
-                            onClick={onOpenLocalFile} 
-                            className={`flex-1 py-2 rounded-md font-medium shadow-sm transition-colors ${localFileName ? 'bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                        >
-                            {localFileName ? 'Cambiar Archivo Local' : 'Abrir Archivo Existente'}
-                        </button>
-                        <button 
-                            onClick={onSaveToLocalFile} 
-                            className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium"
-                        >
-                            Crear Nuevo Archivo
-                        </button>
-                    </div>
-                )}
-            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
