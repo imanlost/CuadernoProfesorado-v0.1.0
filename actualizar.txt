@@ -22,7 +22,7 @@ Extrae el zip en el Escritorio o en Descargas.
 
 ### 📋 PASO 2 — Copia SOLO estos archivos al proyecto
 
-ZIP=~/Desktop/NOMBRE-ZIP
+ZIP=~/Desktop/cuadernoprofesorado
 PROYECTO=~/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno/src
 
 cp $ZIP/App.tsx $PROYECTO/
@@ -132,4 +132,40 @@ Luego ejecuta npm run tauri dev de nuevo.
 2. Copia App.tsx, constants.ts, types.ts, components/, services/ → a la carpeta src/ del proyecto
 3. npm install
 4. npm run tauri dev
+
+## 📦 COMPILAR INSTALADORES CON GITHUB ACTIONS
+
+### ▶️ PASO 1 — Sube los cambios y lanza la compilación automáticamente
+
+cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno
+git add .
+git commit -m "Actualización vX.X"
+git push
+
+⚠️ El git push lanza automáticamente el workflow de compilación.
+No hay que hacer nada más en GitHub Actions.
+
+---
+
+### ▶️ PASO 2 — Descarga los instaladores
+
+1. Ve a tu repositorio en GitHub
+2. Haz clic en la pestaña "Actions"
+3. Espera a que el workflow termine (tarda ~15-20 minutos)
+4. Haz clic en el workflow completado
+5. Baja hasta la sección "Artifacts"
+6. Descarga:
+   - .deb  → Linux
+   - .msi  → Windows
+   - .dmg  → macOS
+
+---
+
+### ✅ RESUMEN COMPILACIÓN
+
+1. git add . && git commit -m "mensaje" && git push
+2. GitHub → Actions → esperar ~20 min
+3. Descargar artifacts
+
+
 
