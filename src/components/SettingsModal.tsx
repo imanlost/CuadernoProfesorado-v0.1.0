@@ -665,6 +665,7 @@ const AcademicConfigManager: React.FC<{
                 periods: Array.isArray(prev?.periods) ? prev.periods : [],
                 defaultStartView: prev?.defaultStartView || 'calendar',
                 defaultCalendarView: prev?.defaultCalendarView || 'month',
+                passingGrade: typeof prev?.passingGrade === 'number' ? prev.passingGrade : 5,
                 // Initialize defaults if missing
                 gradeScale: Array.isArray(prev?.gradeScale) && prev.gradeScale.length > 0 ? prev.gradeScale : [
                     { min: 9, color: 'emerald', label: 'Sobresaliente' },
@@ -793,6 +794,32 @@ const AcademicConfigManager: React.FC<{
                         <button onClick={() => handleAddListItem('evaluationPeriods')} className="text-sm text-blue-600 hover:underline">+ Añadir Periodo</button>
                     </div>
                 </div>
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
+                    <AcademicCapIcon className="w-5 h-5" />
+                    Umbral de Aprobado
+                </h4>
+                <p className="text-xs text-blue-600 mb-3">
+                    Define la nota mínima para considerar que un alumno ha aprobado. 
+                    Este valor se usará en todas las estadísticas y resúmenes de éxito.
+                </p>
+                <div className="flex items-center gap-3">
+                    <input 
+                        type="number" 
+                        min="0" 
+                        max="10" 
+                        step="0.1" 
+                        value={academicConfiguration.passingGrade ?? 5} 
+                        onChange={e => handleConfigChange('passingGrade', parseFloat(e.target.value))} 
+                        className="w-24 p-2 border border-blue-200 rounded-lg font-bold text-blue-700 text-center text-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <span className="text-sm font-medium text-blue-700">Puntos o superior</span>
+                </div>
+                <p className="mt-2 text-[10px] text-blue-500 italic">
+                    * Recuerda ajustar también la "Escala de Calificaciones" más abajo para que los colores coincidan con tu criterio.
+                </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

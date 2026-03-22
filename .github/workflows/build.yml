@@ -34,11 +34,6 @@ jobs:
       - name: Tauri build (macOS)
         if: matrix.platform == 'macos-latest'
         run: npm run tauri build -- --target aarch64-apple-darwin
-      - name: Debug bundles macOS
-        if: matrix.platform == 'macos-latest'
-        run: |
-          echo "=== aarch64 bundle ==="
-          find src-tauri/target/aarch64-apple-darwin -type f 2>/dev/null || echo "Sin aarch64"
       - name: Upload macOS
         if: matrix.platform == 'macos-latest'
         uses: softprops/action-gh-release@v2
@@ -52,7 +47,6 @@ jobs:
         with:
           files: |
             src-tauri/target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/rpm/*.rpm
       - name: Upload Windows
         if: matrix.platform == 'windows-latest'
         uses: softprops/action-gh-release@v2

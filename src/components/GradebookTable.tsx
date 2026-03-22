@@ -127,7 +127,7 @@ const GradebookTable: React.FC<GradebookTableProps> = (props) => {
     for (const student of classData.students) {
         const studentGrades = new Map<string, { grade: number | null; styleClasses: string }>();
         evaluationPeriods.forEach(period => {
-            studentGrades.set(period.id, calculateEvaluationPeriodGradeForStudent(student.id, classData, period.id, academicConfiguration.gradeScale));
+            studentGrades.set(period.id, calculateEvaluationPeriodGradeForStudent(student.id, classData, period.id, academicConfiguration.gradeScale, academicConfiguration.passingGrade));
         });
         periodGrades.set(student.id, studentGrades);
     }
@@ -551,6 +551,42 @@ const GradebookTable: React.FC<GradebookTableProps> = (props) => {
                       <TableCellsIcon className="w-4 h-4" />
                       {isSpreadsheetMode ? 'Edición Rápida Activa' : 'Modo Edición Rápida'}
                   </button>
+                  
+                  {/* Quick Statistics Indicator */}
+                  <div className="hidden sm:flex items-center gap-4 ml-4 px-4 py-1.5 bg-white border border-slate-200 rounded-md shadow-sm">
+                      <div className="flex items-center gap-1.5">
+                          <div className={`w-2 h-2 rounded-full ${activePeriodId === 'final' ? 'bg-amber-500' : 'bg-blue-500'}`}></div>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                              {activePeriodId === 'final' ? 'Éxito Final' : 'Éxito Ev.'}
+                          </span>
+                      </div>
+                      <span className={`text-sm font-bold ${
+                          (() => {
+                              const stats = activePeriodId === 'final' 
+                                ? Array.from(studentOverallFinalGrades.values()).map(v => (v as { grade: string }).grade !== 'N/A' ? parseFloat((v as { grade: string }).grade) : null)
+                                : Array.from(studentPeriodGrades.values()).map(m => (m as Map<string, { grade: number }>).get(activePeriodId)?.grade ?? null);
+                              
+                              const validGrades = stats.filter((g): g is number => g !== null);
+                              const passCount = validGrades.filter(g => g >= (academicConfiguration.passingGrade ?? 5)).length;
+                              const percentage = validGrades.length > 0 ? (passCount / validGrades.length) * 100 : 0;
+                              
+                              return percentage >= 50 ? 'text-emerald-600' : 'text-red-600';
+                          })()
+                      }`}>
+                          {(() => {
+                              const stats = activePeriodId === 'final' 
+                                ? Array.from(studentOverallFinalGrades.values()).map(v => (v as { grade: string }).grade !== 'N/A' ? parseFloat((v as { grade: string }).grade) : null)
+                                : Array.from(studentPeriodGrades.values()).map(m => (m as Map<string, { grade: number }>).get(activePeriodId)?.grade ?? null);
+                              
+                              const validGrades = stats.filter((g): g is number => g !== null);
+                              const passCount = validGrades.filter(g => g >= (academicConfiguration.passingGrade ?? 5)).length;
+                              const percentage = validGrades.length > 0 ? (passCount / validGrades.length) * 100 : 0;
+                              
+                              return `${percentage.toFixed(1)}% Aprobados (${passCount}/${validGrades.length})`;
+                          })()}
+                      </span>
+                  </div>
+
                   {isSpreadsheetMode && (
                       <span className="text-xs text-green-700 font-medium animate-pulse">
                           Usa las flechas del teclado y Enter para moverte.

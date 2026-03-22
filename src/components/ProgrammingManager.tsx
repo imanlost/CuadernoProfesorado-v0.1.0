@@ -137,6 +137,10 @@ const ProgrammingManager: React.FC<ProgrammingManagerProps> = ({ courses, units,
     }, [selectedCourseId, classes, academicConfiguration, units]);
 
 
+    const handleToggleTaught = (unitId: string) => {
+        setUnits(prev => prev.map(u => u.id === unitId ? { ...u, isTaught: !u.isTaught } : u));
+    };
+
     const handleSave = (unit: ProgrammingUnit) => {
         if (unitEditorState?.mode === 'edit') {
             setUnits(prev => prev.map(u => u.id === unit.id ? unit : u));
@@ -395,6 +399,7 @@ const ProgrammingManager: React.FC<ProgrammingManagerProps> = ({ courses, units,
                                                 linkedBasicKnowledge={linkedBasicKnowledgeData} 
                                                 onEdit={() => setUnitEditorState({ mode: 'edit', unit })} 
                                                 onDelete={() => handleDelete(unit.id)} 
+                                                onToggleTaught={() => handleToggleTaught(unit.id)}
                                             />
                                         </div>
                                     );
@@ -437,9 +442,10 @@ interface UnitViewerProps {
     linkedBasicKnowledge: BasicKnowledge[];
     onEdit: () => void;
     onDelete: () => void;
+    onToggleTaught: () => void;
 }
 
-const UnitViewer: React.FC<UnitViewerProps> = ({ unit, dateRange, linkedCriteria, linkedBasicKnowledge, onEdit, onDelete }) => {
+const UnitViewer: React.FC<UnitViewerProps> = ({ unit, dateRange, linkedCriteria, linkedBasicKnowledge, onEdit, onDelete, onToggleTaught }) => {
     const formatDateRange = () => {
         if (!dateRange || !dateRange.start || !dateRange.end) return "Fechas no calculadas";
         const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
@@ -450,9 +456,21 @@ const UnitViewer: React.FC<UnitViewerProps> = ({ unit, dateRange, linkedCriteria
 
     return (
         <div className="flex items-start justify-between">
-            <div>
-                <h3 className="font-bold text-slate-800">{unit.name} <span className="font-normal text-sm text-slate-500">({unit.sessions} sesiones)</span></h3>
-                <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-start gap-3">
+                <div className="mt-1">
+                    <input 
+                        type="checkbox" 
+                        checked={!!unit.isTaught} 
+                        onChange={onToggleTaught}
+                        className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        title={unit.isTaught ? "Marcar como no impartida" : "Marcar como impartida"}
+                    />
+                </div>
+                <div>
+                    <h3 className={`font-bold transition-colors ${unit.isTaught ? 'text-slate-400' : 'text-slate-800'}`}>
+                        {unit.name} <span className="font-normal text-sm text-slate-500">({unit.sessions} sesiones)</span>
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
                     <p className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full inline-block">{formatDateRange()}</p>
                     {unit.startDate && <p className="text-xs text-slate-500 italic">Inicio fijado: {unit.startDate}</p>}
                 </div>
@@ -473,7 +491,8 @@ const UnitViewer: React.FC<UnitViewerProps> = ({ unit, dateRange, linkedCriteria
                     </div>
                 </div>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        </div>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={onEdit} className="p-2 hover:bg-slate-200 rounded-full"><PencilIcon className="w-4 h-4 text-slate-600" /></button>
                 <button onClick={onDelete} className="p-2 hover:bg-red-100 rounded-full"><TrashIcon className="w-4 h-4 text-red-500" /></button>
             </div>

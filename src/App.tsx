@@ -9,7 +9,21 @@ import SpecificCompetenceAchievement from './components/SpecificCompetenceAchiev
 import KeyCompetenceAchievement from './components/KeyCompetenceAchievement';
 import DescriptorAchievement from './components/DescriptorAchievement';
 import ClassJournal from './components/ClassJournal';
-import { BookOpenIcon, CalendarDaysIcon, Cog8ToothIcon, ChevronDownIcon, ComputerDesktopIcon } from './components/Icons';
+import GroupStatistics from './components/GroupStatistics';
+import { 
+  PlusIcon, 
+  UserGroupIcon, 
+  AcademicCapIcon, 
+  Cog8ToothIcon, 
+  ArrowDownTrayIcon, 
+  ArrowUpTrayIcon, 
+  BookOpenIcon, 
+  ClipboardDocumentIcon, 
+  CalendarDaysIcon, 
+  ChevronDownIcon,
+  ChartBarIcon,
+  ComputerDesktopIcon
+} from './components/Icons';
 import SettingsModal from './components/SettingsModal';
 import ExportModal from './components/ExportModal';
 import CalendarView from './components/CalendarView';
@@ -350,7 +364,7 @@ function useDatabase() {
     return { appState, loading, error, updateState, importDatabase, exportDatabase, resetDatabase, saveToLocalFile, openLocalFile, fileHandle };
 }
 
-type View = 'calendar' | 'gradebook' | 'journal' | 'criteria' | 'competences' | 'key-competences' | 'descriptors';
+type View = 'calendar' | 'gradebook' | 'journal' | 'criteria' | 'competences' | 'key-competences' | 'descriptors' | 'statistics';
 
 const App = () => {
     const { appState, loading, error, updateState, importDatabase, exportDatabase, resetDatabase, saveToLocalFile, openLocalFile, fileHandle } = useDatabase();
@@ -565,7 +579,16 @@ const App = () => {
                     keyCompetences={keyCompetences} 
                     onSaveJournalEntry={handleUpdateJournalEntry}
                 />;
-            default:
+            case 'statistics':
+        return activeClass ? (
+          <GroupStatistics 
+            classData={activeClass}
+            programmingUnits={programmingUnits}
+            academicConfiguration={academicConfiguration}
+            allCourses={courses}
+          />
+        ) : null;
+      default:
                 return null;
         }
     };
@@ -597,6 +620,7 @@ const App = () => {
                                 <div className="absolute top-full mt-2 w-60 bg-white rounded-lg shadow-xl border z-50 p-2">
                                     <button onClick={() => { setActiveView('gradebook'); setNotebookOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 rounded-md">Calificaciones</button>
                                     <button onClick={() => { setActiveView('criteria'); setNotebookOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 rounded-md">Informes</button>
+                                    <button onClick={() => { setActiveView('statistics'); setNotebookOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 rounded-md">Estadísticas</button>
                                 </div>
                             )}
                         </div>

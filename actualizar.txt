@@ -1,0 +1,135 @@
+## 📄 GUÍA COMPLETA DE ACTUALIZACIÓN — Cuaderno Profesorado Tauri
+
+### 🗂️ RUTA DEL PROYECTO
+/home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno
+
+---
+
+### ⚠️ ANTES DE EMPEZAR — LEE ESTO
+
+El zip de AI Studio NO está preparado para Tauri. Si copias todo el zip
+encima del proyecto, ROMPES Tauri. Solo hay que copiar archivos concretos.
+El zip NO tiene carpeta src/ — los archivos están sueltos en la raíz.
+
+---
+
+### 📦 PASO 1 — Descomprime el zip en el Escritorio
+
+Extrae el zip en el Escritorio o en Descargas.
+❌ NUNCA lo extraigas dentro de la carpeta tauri-cuaderno.
+
+---
+
+### 📋 PASO 2 — Copia SOLO estos archivos al proyecto
+
+ZIP=~/Desktop/NOMBRE-ZIP
+PROYECTO=~/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno/src
+
+cp $ZIP/App.tsx $PROYECTO/
+cp $ZIP/constants.ts $PROYECTO/
+cp $ZIP/types.ts $PROYECTO/
+cp -r $ZIP/components/ $PROYECTO/
+cp -r $ZIP/services/ $PROYECTO/
+
+⚠️ Cambia NOMBRE-ZIP por el nombre real de tu carpeta extraída.
+Cuando pregunte si sobreescribir → Sí.
+
+---
+
+### ❌ NUNCA copies del zip estos archivos
+
+- package.json         → tiene las dependencias de Tauri
+- package-lock.json
+- vite.config.ts       → tiene el puerto 1420 para Tauri
+- tsconfig.json
+- index.html           → versión adaptada para Tauri
+- index.tsx
+- metadata.json
+- README.md, CHANGELOG.md, screenshot/
+
+---
+
+### 🔧 PASO 3 — Instala dependencias
+
+cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno
+npm install
+
+---
+
+### ▶️ PASO 4 — Prueba que funciona
+
+npm run tauri dev
+
+Espera hasta que se abra la ventana. Tarda 1-2 minutos la primera vez.
+
+---
+
+### 🆘 ERRORES COMUNES Y SOLUCIÓN
+
+ERROR: Missing script: "tauri"
+→ Sobreescribiste el package.json. Repáralo:
+
+cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno
+cat > package.json << 'EOF'
+{
+  "name": "cuadernoprofesorado-v2",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@google/genai": "^1.26.0",
+    "@tauri-apps/api": "^2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "recharts": "^3.8.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
+EOF
+npm install
+
+---
+
+ERROR: Waiting for your frontend dev server to start on http://localhost:1420/
+→ Sobreescribiste el vite.config.ts. Repáralo:
+
+cat > /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno/vite.config.ts << 'EOF'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 1420,
+    strictPort: true,
+  },
+  build: {
+    outDir: 'dist',
+  },
+})
+EOF
+
+Luego ejecuta npm run tauri dev de nuevo.
+
+---
+
+### ✅ RESUMEN RÁPIDO
+
+1. Extrae zip en el Escritorio
+2. Copia App.tsx, constants.ts, types.ts, components/, services/ → a la carpeta src/ del proyecto
+3. npm install
+4. npm run tauri dev
+
