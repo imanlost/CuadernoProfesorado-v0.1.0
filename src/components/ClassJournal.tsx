@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { JournalEntry, ClassData, AcademicConfiguration, ProgrammingUnit, Course } from '../types';
 import { ClockIcon, BookOpenIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { PALETTE_COLORS } from '../constants';
 
 interface ClassJournalProps {
   classes: ClassData[];
@@ -29,6 +30,7 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
   const [selectedDate, setSelectedDate] = useState<string>(toYYYYMMDD(new Date()));
   // Local state to hold edits before saving: Map<classId, string>
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
+  const [colorMap, setColorMap] = useState<Record<string, string | undefined>>({});
   const [isDirtyMap, setIsDirtyMap] = useState<Record<string, boolean>>({});
 
   // Determine day of week for schedule filtering (1=Mon, 5=Fri)
@@ -57,7 +59,7 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
     }, [academicConfiguration.holidays]);
 
   // Logic to find planned content for a specific class and date
-  const getPlannedContent = (classData: ClassData, targetDateStr: string): { unitName: string, sessionDesc: string, sessionNumber: number } | null => {
+  const getPlannedContent = (classData: ClassData, targetDateStr: string): { unitName: string, sessionDesc: string, sessionNumber: number, color?: string } | null => {
         if (!classData.schedule || classData.schedule.length === 0) return null;
         if (!academicConfiguration.academicYearStart || !academicConfiguration.academicYearEnd) return null;
 
@@ -103,7 +105,8 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
                 return {
                     unitName: unit.name,
                     sessionDesc: detail?.description || '',
-                    sessionNumber: sessionInUnit + 1
+                    sessionNumber: sessionInUnit + 1,
+                    color: detail?.color
                 };
             }
             cumulativeSessions += unit.sessions;
@@ -139,20 +142,28 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
   // Initialize notes from existing entries when date changes
   useEffect(() => {
       const newNotes: Record<string, string> = {};
+      const newColors: Record<string, string | undefined> = {};
       const newDirty: Record<string, boolean> = {};
       
       scheduledClasses.forEach(item => {
           const existingEntry = entries.find(e => e.classId === item.classData.id && e.date === selectedDate);
           newNotes[item.classData.id] = existingEntry ? existingEntry.notes : '';
+          newColors[item.classData.id] = existingEntry ? existingEntry.color : item.plannedContent?.color;
           newDirty[item.classData.id] = false;
       });
       
       setNotesMap(newNotes);
+      setColorMap(newColors);
       setIsDirtyMap(newDirty);
   }, [selectedDate, scheduledClasses, entries]);
 
   const handleNoteChange = (classId: string, text: string) => {
       setNotesMap(prev => ({ ...prev, [classId]: text }));
+      setIsDirtyMap(prev => ({ ...prev, [classId]: true }));
+  };
+
+  const handleColorChange = (classId: string, color: string | undefined) => {
+      setColorMap(prev => ({ ...prev, [classId]: color }));
       setIsDirtyMap(prev => ({ ...prev, [classId]: true }));
   };
 
@@ -163,12 +174,14 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
           if (isDirtyMap[classId]) {
               const existingEntry = entries.find(e => e.classId === classId && e.date === selectedDate);
               const noteContent = notesMap[classId];
+              const colorContent = colorMap[classId];
               
               onSave({
                   id: existingEntry?.id || `j-${Date.now()}-${classId}-${Math.random().toString(36).substring(2, 5)}`,
                   date: selectedDate,
                   classId: classId,
-                  notes: noteContent
+                  notes: noteContent,
+                  color: colorContent
               });
               savedCount++;
           }
@@ -274,13 +287,40 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
                             )}
 
                             {/* Editable Notes Area */}
-                            <div className="p-4 flex-grow">
-                                <textarea
-                                    value={notesMap[classId] || ''}
-                                    onChange={(e) => handleNoteChange(classId, e.target.value)}
-                                    placeholder={`Anotaciones reales de la sesión (incidencias, tareas mandadas, etc.)...`}
-                                    className="w-full h-32 p-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 resize-y text-sm"
-                                />
+                            <div className="p-4 flex-grow space-y-4">
+                                <div className="space-y-2">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Color de la Sesión:</label>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {PALETTE_COLORS.map(color => (
+                                            <button
+                                                key={color}
+                                                type="button"
+                                                onClick={() => handleColorChange(classId, color === colorMap[classId] ? undefined : color)}
+                                                className={`w-6 h-6 rounded-full border-2 transition-all ${colorMap[classId] === color ? 'border-blue-500 ring-2 ring-blue-100 scale-110 shadow-sm' : 'border-white shadow-xs'}`}
+                                                style={{ backgroundColor: color }}
+                                            />
+                                        ))}
+                                        {colorMap[classId] && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleColorChange(classId, undefined)}
+                                                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-tighter px-1"
+                                            >
+                                                Limpiar
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Anotaciones:</label>
+                                    <textarea
+                                        value={notesMap[classId] || ''}
+                                        onChange={(e) => handleNoteChange(classId, e.target.value)}
+                                        placeholder={`Anotaciones reales de la sesión (incidencias, tareas mandadas, etc.)...`}
+                                        className="w-full h-32 p-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 resize-y text-sm"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
