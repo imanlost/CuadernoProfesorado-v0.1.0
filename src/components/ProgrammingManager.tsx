@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { ProgrammingUnit, Course, SessionDetail, EvaluationCriterion, BasicKnowledge, ClassData, AcademicConfiguration } from '../types';
 import { PencilIcon, TrashIcon, PlusIcon, ArrowUpIcon, ArrowDownIcon, ArrowUpTrayIcon, ArrowDownTrayIcon } from './Icons';
+import { PALETTE_COLORS } from '../constants';
 import Modal from './Modal';
 
 interface ProgrammingManagerProps {
@@ -499,8 +500,6 @@ const UnitViewer: React.FC<UnitViewerProps> = ({ unit, dateRange, linkedCriteria
         </div>
     )
 };
-
-const PALETTE_COLORS = ['#89b0f3', '#7dd7b2', '#fde28a', '#f472b6', '#b6a3f9', '#ef4444'];
 
 const UnitEditor: React.FC<{ unit: ProgrammingUnit; onSave: (unit: ProgrammingUnit) => void; onCancel: () => void; criteria: EvaluationCriterion[], basicKnowledge: BasicKnowledge[] }> = ({ unit, onSave, onCancel, criteria, basicKnowledge }) => {
     const [editedUnit, setEditedUnit] = useState(unit);
