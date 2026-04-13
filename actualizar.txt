@@ -20,7 +20,7 @@ Extrae el zip en el Escritorio o en Descargas.
 
 ---
 
-### 📋 PASO 2 — Copia SOLO estos archivos al proyecto
+### 📋 PASO 2 — Copia SOLO estos archivos al proyecto sin la terminal, a mano.
 
 ZIP=~/Desktop/cuadernoprofesorado
 PROYECTO=~/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno/src
@@ -158,6 +158,12 @@ git push --tags
 
 ⚠️ El tag vX.X es lo que dispara la compilación.
 Sin tag → no se compila nada.
+
+### ▶️ PASO 1bis — lanzar action habiendo hecho los cambios en GitHub directamente
+
+en el repo ir a Releases>Draft a new release
+"Choose a tag" escribir la versión v.X.X   Create a new tag
+Click "Publish release"
 
 ---
 
