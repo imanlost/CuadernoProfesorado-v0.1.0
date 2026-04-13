@@ -30,7 +30,7 @@ function findStaleTargetPath() {
         continue
       }
 
-      if (!line.includes('/src-tauri/tauri.conf.json')) {
+      if (!line.includes('/src-tauri/tauri.conf.json') && !line.includes('\\src-tauri\\tauri.conf.json')) {
         continue
       }
 
@@ -52,6 +52,7 @@ if (stalePath) {
   const cleanResult = spawnSync('cargo', ['clean', '--manifest-path', path.join(srcTauriDir, 'Cargo.toml')], {
     cwd: projectRoot,
     stdio: 'inherit',
+    shell: true,
   })
 
   if (cleanResult.status !== 0) {
@@ -60,10 +61,12 @@ if (stalePath) {
 }
 
 const tauriArgs = process.argv.slice(2)
-const tauriBin = path.join(projectRoot, 'node_modules', '.bin', 'tauri')
+const isWindows = process.platform === 'win32'
+const tauriBin = path.join(projectRoot, 'node_modules', '.bin', isWindows ? 'tauri.cmd' : 'tauri')
 const result = spawnSync(tauriBin, tauriArgs, {
   cwd: projectRoot,
   stdio: 'inherit',
+  shell: isWindows,
 })
 
-process.exit(result.status ?? 1)
+process.exit(result.status ?? 0)
