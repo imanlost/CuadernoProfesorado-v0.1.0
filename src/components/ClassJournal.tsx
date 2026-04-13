@@ -14,15 +14,15 @@ interface ClassJournalProps {
 }
 
 const toYYYYMMDD = (date: Date): string => {
-    const y = date.getFullYear();
-    const m = date.getMonth() + 1;
-    const d = date.getDate();
+    const y = date.getUTCFullYear();
+    const m = date.getUTCMonth() + 1;
+    const d = date.getUTCDate();
     return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 };
 
 const addDays = (date: Date, days: number): Date => {
     const d = new Date(date);
-    d.setDate(d.getDate() + days);
+    d.setUTCDate(d.getUTCDate() + days);
     return d;
 };
 
@@ -35,8 +35,8 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
 
   // Determine day of week for schedule filtering (1=Mon, 5=Fri)
   const dayOfWeek = useMemo(() => {
-      const d = new Date(selectedDate);
-      const day = d.getDay();
+      const d = new Date(selectedDate + 'T00:00:00Z');
+      const day = d.getUTCDay();
       return day === 0 ? 7 : day; // Normalize Sunday if needed, though schedule is usually 1-5
   }, [selectedDate]);
 
@@ -48,12 +48,12 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
         const holidayRanges = academicConfiguration.holidays
             .filter(h => h.startDate && h.endDate)
             .map(h => ({
-                start: new Date(h.startDate + 'T00:00:00'),
-                end: new Date(h.endDate + 'T00:00:00')
+                start: new Date(h.startDate + 'T00:00:00Z'),
+                end: new Date(h.endDate + 'T00:00:00Z')
             }));
         
         return (date: Date): boolean => {
-            const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const dateOnly = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
             return holidayRanges.some(range => dateOnly >= range.start && dateOnly <= range.end);
         };
     }, [academicConfiguration.holidays]);
@@ -67,11 +67,11 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
         if (courseUnits.length === 0) return null;
 
         const skippedDaysSet = new Set(classData.skippedDays || []);
-        const targetDate = new Date(targetDateStr + 'T00:00:00');
-        const startDate = new Date(academicConfiguration.academicYearStart + 'T00:00:00');
+        const targetDate = new Date(targetDateStr + 'T00:00:00Z');
+        const startDate = new Date(academicConfiguration.academicYearStart + 'T00:00:00Z');
         
         // Check if today is valid for this class
-        const slotsToday = classData.schedule.filter(s => s.day === targetDate.getDay());
+        const slotsToday = classData.schedule.filter(s => s.day === targetDate.getUTCDay());
         if (slotsToday.length === 0 || skippedDaysSet.has(targetDateStr) || isHoliday(targetDate)) {
             return null;
         }
@@ -82,7 +82,7 @@ const ClassJournal: React.FC<ClassJournalProps> = ({ classes, entries, onSave, a
         
         while (currentDateIterator < targetDate) {
             const dStr = toYYYYMMDD(currentDateIterator);
-            const dayIdx = currentDateIterator.getDay();
+            const dayIdx = currentDateIterator.getUTCDay();
             
             if (dayIdx !== 0 && dayIdx !== 6 && !isHoliday(currentDateIterator) && !skippedDaysSet.has(dStr)) {
                 const slots = classData.schedule.filter(s => s.day === dayIdx);

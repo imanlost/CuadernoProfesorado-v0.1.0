@@ -34,9 +34,9 @@ const getGradeStyleClasses = (grade: number | null, config?: AcademicConfigurati
 };
 
 const toYYYYMMDD = (date: Date): string => {
-    const y = date.getFullYear();
-    const m = date.getMonth() + 1;
-    const d = date.getDate();
+    const y = date.getUTCFullYear();
+    const m = date.getUTCMonth() + 1;
+    const d = date.getUTCDate();
     return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 };
 

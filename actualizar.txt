@@ -60,7 +60,7 @@ Pide ayuda si no sabes qué ha cambiado.
 
 ### 🔧 PASO 3 — Instala dependencias
 
-cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno
+cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesoradoGitHub/tauri-cuaderno
 npm install
 
 ---
@@ -149,7 +149,7 @@ Luego ejecuta npm run tauri dev de nuevo.
 
 ### ▶️ PASO 1 — Sube los cambios y crea un tag de versión
 
-cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno
+cd /home/imanowl/Desktop/PROYECTOS/CUADERNO/cuadernoprofesoradoGitHub/tauri-cuaderno
 git add .
 git commit -m "Actualización v1.X"
 git tag v1.X
