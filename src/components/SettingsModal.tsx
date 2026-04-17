@@ -1,4 +1,6 @@
 
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { UserGroupIcon, AcademicCapIcon, ArrowDownTrayIcon, PencilIcon, TrashIcon, PlusIcon, BookOpenIcon, ClockIcon, CalendarDaysIcon, ListBulletIcon, ArrowUpIcon, ArrowDownIcon, BeakerIcon, ComputerDesktopIcon, DocumentDuplicateIcon } from './Icons';
@@ -950,19 +952,23 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handleExportClick = () => {
+    const handleExportClick = async () => {
         const data = exportDatabase();
-        if (data) {
-            const blob = new Blob([data], { type: 'application/x-sqlite3' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`;
-            a.click();
+        if (!data) return;
+        try {
+            const filePath = await save({
+                defaultPath: `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`,
+                filters: [{ name: "SQLite Database", extensions: ["db", "sqlite"] }]
+            });
+            if (!filePath) return;
+            await writeFile(filePath, data);
+            alert(`Copia de seguridad guardada en: ${filePath}`);
+        } catch (err: any) {
+            if (err.name !== 'AbortError') {
+                alert("Error al exportar la copia de seguridad: " + err);
+            }
         }
     };
-
-    const isFSAASupported = 'showOpenFilePicker' in window;
 
     return (
         <div className="space-y-6">
@@ -988,28 +994,20 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
                     )}
                 </div>
 
-                {!isFSAASupported ? (
-                    <div className="text-sm text-amber-800 bg-amber-50 p-3 rounded-md border border-amber-200 mt-3 space-y-2">
-                         <p className="font-bold">⚠️ Esta función requiere un navegador compatible.</p>
-                         <p>Firefox y Safari bloquean el acceso directo al sistema de archivos por seguridad. Para usar la sincronización automática, debes usar <strong>Chrome, Edge o Opera</strong> en un ordenador.</p>
-                         <p className="text-xs mt-1 italic">Si no puedes cambiar de navegador, utiliza los botones de "Exportar/Importar Copia" de abajo manualmente.</p>
-                    </div>
-                ) : (
-                    <div className="mt-4 flex gap-3">
-                         <button 
-                            onClick={onOpenLocalFile} 
-                            className={`flex-1 py-2 rounded-md font-medium shadow-sm transition-colors ${localFileName ? 'bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                        >
-                            {localFileName ? 'Cambiar Archivo Local' : 'Abrir Archivo Existente'}
-                        </button>
-                        <button 
-                            onClick={onSaveToLocalFile} 
-                            className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium"
-                        >
-                            Crear Nuevo Archivo
-                        </button>
-                    </div>
-                )}
+                <div className="mt-4 flex gap-3">
+                     <button 
+                        onClick={onOpenLocalFile} 
+                        className={`flex-1 py-2 rounded-md font-medium shadow-sm transition-colors ${localFileName ? 'bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                    >
+                        {localFileName ? 'Cambiar Archivo Local' : 'Abrir Archivo Existente'}
+                    </button>
+                    <button 
+                        onClick={onSaveToLocalFile} 
+                        className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium"
+                    >
+                        Crear Nuevo Archivo
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
