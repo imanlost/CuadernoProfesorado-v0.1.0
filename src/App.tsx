@@ -1,5 +1,3 @@
-import { save, open } from "@tauri-apps/plugin-dialog";
-import { writeFile, readFile } from "@tauri-apps/plugin-fs";
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { INITIAL_CLASS_DATA, INITIAL_COMPETENCES, INITIAL_CRITERIA, INITIAL_KEY_COMPETENCES, INITIAL_JOURNAL_ENTRIES, INITIAL_COURSES, INITIAL_PROGRAMMING_UNITS, INITIAL_BASIC_KNOWLEDGE, INITIAL_ACADEMIC_CONFIGURATION, INITIAL_EVALUATION_TOOLS } from './constants';
 import type { ClassData, EvaluationCriterion, SpecificCompetence, KeyCompetence, JournalEntry, Course, ProgrammingUnit, BasicKnowledge, AcademicConfiguration, EvaluationTool, Assignment } from './types';
@@ -28,6 +26,8 @@ import SettingsModal from './components/SettingsModal';
 import ExportModal from './components/ExportModal';
 import CalendarView from './components/CalendarView';
 import Logo from './components/Logo';
+import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
+import { readFile, writeFile } from '@tauri-apps/plugin-fs';
 
 // Type for the entire application state
 interface AppState {
@@ -95,8 +95,8 @@ function useDatabase() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
-    // File System Access API Handle
-    const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
+    // Tauri dialog/fs plugins return file paths, not browser file handles.
+    const [fileHandle, setFileHandle] = useState<string | null>(null);
 
     const loadDataFromDb = (db: any) => {
         try {
@@ -175,11 +175,9 @@ function useDatabase() {
                     // 1. Save to browser storage (IndexedDB) as fallback/cache
                     await indexedDB.set(binaryDb);
 
-                    // 2. If a local file handle exists, write to disk!
+                    // 2. If a local file path exists, write to disk as well.
                     if (fileHandle) {
-                        const writable = await fileHandle.createWritable();
-                        await writable.write(binaryDb);
-                        await writable.close();
+                        await writeFile(fileHandle, binaryDb);
                         console.log("Saved to local file system successfully.");
                     }
                 } catch (e) {
@@ -234,51 +232,63 @@ function useDatabase() {
         return null;
     }, []);
 
-    // File System Access API Handlers
-
+    // Tauri file dialog + filesystem handlers
     const saveToLocalFile = async () => {
         try {
             const filePath = await save({
-                defaultPath: "cuaderno-docente.db",
-                filters: [{ name: "SQLite Database", extensions: ["db", "sqlite"] }]
+                defaultPath: 'cuaderno-docente.db',
+                filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] }],
             });
             if (!filePath) return;
+
             const db = dbRef.current;
-            if (db) {
-                const binaryDb = db.export();
-                await writeFile(filePath, binaryDb);
-                setFileHandle(filePath as any);
-                alert(`Guardado en: ${filePath}`);
+            if (!db) {
+                throw new Error('La base de datos no esta inicializada.');
             }
+
+            const binaryDb = db.export();
+            await writeFile(filePath, binaryDb);
+            setFileHandle(filePath);
+            alert(`Guardado en: ${filePath}`);
         } catch (err: any) {
-            if (err.name !== "AbortError") alert("Error al guardar: " + err);
+            if (err.name !== 'AbortError') {
+                alert(`Error al guardar: ${err instanceof Error ? err.message : String(err)}`);
+            }
         }
     };
 
     const openLocalFile = async () => {
         try {
-            const filePath = await open({
-                filters: [{ name: "SQLite Database", extensions: ["db", "sqlite"] }],
-                multiple: false
+            const filePath = await openDialog({
+                filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] }],
+                multiple: false,
             });
-            if (!filePath || typeof filePath !== "string") return;
+
+            if (!filePath || typeof filePath !== 'string') return;
+
             setLoading(true);
             const buffer = await readFile(filePath);
-            const SQL = await window.initSqlJs({ locateFile: (f: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+            const SQL = await window.initSqlJs({
+                locateFile: (f: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`,
+            });
+
             const db = new SQL.Database(buffer);
             dbRef.current = db;
+
             const data = loadDataFromDb(db);
             if (data) {
                 setAppState(data);
                 const binaryDb = db.export();
                 await indexedDB.set(binaryDb);
-                setFileHandle(filePath as any);
+                setFileHandle(filePath);
                 alert(`Archivo cargado: ${filePath}`);
             } else {
-                throw new Error("Archivo no válido.");
+                throw new Error('Archivo no valido.');
             }
         } catch (err: any) {
-            if (err.name !== "AbortError") alert("Error al abrir: " + err);
+            if (err.name !== 'AbortError') {
+                alert(`Error al abrir: ${err instanceof Error ? err.message : String(err)}`);
+            }
         } finally {
             setLoading(false);
         }
@@ -610,9 +620,9 @@ const App = () => {
                 <div className="flex items-center gap-2">
                     {/* Visual Indicator for Sync */}
                     {fileHandle && (
-                        <div className="hidden md:flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-md text-xs text-indigo-700 font-medium" title={`Sincronizado con: ${fileHandle.name}`}>
+                        <div className="hidden md:flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-md text-xs text-indigo-700 font-medium" title={`Sincronizado con: ${fileHandle}`}>
                             <ComputerDesktopIcon className="w-4 h-4" />
-                            <span className="truncate max-w-[100px]">{fileHandle.name}</span>
+                            <span className="truncate max-w-[100px]">{fileHandle.split(/[\\/]/).pop() || fileHandle}</span>
                         </div>
                     )}
 
@@ -668,7 +678,7 @@ const App = () => {
                 resetDatabase={resetDatabase}
                 onSaveToLocalFile={saveToLocalFile}
                 onOpenLocalFile={openLocalFile}
-                localFileName={fileHandle?.name || null}
+                localFileName={fileHandle ? fileHandle.split(/[\\/]/).pop() || fileHandle : null}
             />
 
             <ExportModal

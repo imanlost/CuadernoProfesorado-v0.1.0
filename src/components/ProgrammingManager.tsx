@@ -16,15 +16,15 @@ interface ProgrammingManagerProps {
 }
 
 const toYYYYMMDD = (date: Date): string => {
-    const y = date.getFullYear();
-    const m = date.getMonth() + 1;
-    const d = date.getDate();
+    const y = date.getUTCFullYear();
+    const m = date.getUTCMonth() + 1;
+    const d = date.getUTCDate();
     return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 };
 
 const addDays = (date: Date, days: number): Date => {
     const d = new Date(date);
-    d.setDate(d.getDate() + days);
+    d.setUTCDate(d.getUTCDate() + days);
     return d;
 };
 
@@ -46,10 +46,10 @@ const ProgrammingManager: React.FC<ProgrammingManagerProps> = ({ courses, units,
 
         const isHoliday = (date: Date): boolean => {
             if (!academicConfiguration?.holidays) return false;
-            const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const dateOnly = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
             return academicConfiguration.holidays.some(h => {
-                const start = new Date(h.startDate + 'T00:00:00');
-                const end = new Date(h.endDate + 'T00:00:00');
+                const start = new Date(h.startDate + 'T00:00:00Z');
+                const end = new Date(h.endDate + 'T00:00:00Z');
                 return dateOnly >= start && dateOnly <= end;
             });
         };
@@ -59,11 +59,11 @@ const ProgrammingManager: React.FC<ProgrammingManagerProps> = ({ courses, units,
         
         // We calculate valid school dates first
         const schoolDays: Date[] = [];
-        let currentDateIterator = new Date(academicConfiguration.academicYearStart + 'T00:00:00');
-        const endDate = new Date(academicConfiguration.academicYearEnd + 'T00:00:00');
+        let currentDateIterator = new Date(academicConfiguration.academicYearStart + 'T00:00:00Z');
+        const endDate = new Date(academicConfiguration.academicYearEnd + 'T00:00:00Z');
         
         while (currentDateIterator <= endDate) {
-            const dayOfWeek = currentDateIterator.getDay();
+            const dayOfWeek = currentDateIterator.getUTCDay();
             if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoliday(currentDateIterator)) {
                 schoolDays.push(new Date(currentDateIterator));
             }
@@ -78,7 +78,7 @@ const ProgrammingManager: React.FC<ProgrammingManagerProps> = ({ courses, units,
         const validSessionDates: Date[] = [];
 
         schoolDays.forEach(schoolDay => {
-            const slotsForThisDay = (classData.schedule || []).filter(slot => slot.day === schoolDay.getDay());
+            const slotsForThisDay = (classData.schedule || []).filter(slot => slot.day === schoolDay.getUTCDay());
             if (slotsForThisDay.length > 0 && !skippedDaysSet.has(toYYYYMMDD(schoolDay))) {
                 // Add one entry per slot. We treat sessions as linear.
                 for (let i = 0; i < slotsForThisDay.length; i++) {

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import type { ProgrammingUnit, Course, AcademicConfiguration, ClassData, JournalEntry, EvaluationPeriod, Assignment, EvaluationCriterion, SpecificCompetence, KeyCompetence, SessionDetail } from '../types';
 import { ChevronLeftIcon, ChevronRightIcon, CalendarDaysIcon, ViewWeekIcon, ViewDayIcon, PencilIcon, ClipboardDocumentIcon, PlusIcon, BookOpenIcon } from './Icons';

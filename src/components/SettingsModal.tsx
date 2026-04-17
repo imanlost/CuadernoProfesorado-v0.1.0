@@ -950,73 +950,13 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handleExportClick = () => {
-        const data = exportDatabase();
-        if (data) {
-            const blob = new Blob([data], { type: 'application/x-sqlite3' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`;
-            a.click();
-        }
-    };
-
-    const isFSAASupported = 'showOpenFilePicker' in window;
-
     return (
-        <div className="space-y-6">
-            <h3 className="text-xl font-bold text-slate-800">Copia de Seguridad y Datos</h3>
-
-             {/* Local File Sync Section */}
-            <div className="p-4 border rounded-lg bg-indigo-50 border-indigo-200">
-                <div className="flex justify-between items-start mb-2">
-                    <div>
-                        <h4 className="font-bold text-indigo-800 flex items-center gap-2">
-                            <ComputerDesktopIcon className="w-5 h-5"/>
-                            Modo Archivo Local (Sincronización)
-                        </h4>
-                        <p className="text-sm text-indigo-700 mt-1">
-                            Abre un archivo directamente desde tu disco duro (ej. en tu carpeta de Dropbox/Drive). 
-                            La aplicación guardará los cambios automáticamente en ese archivo.
-                        </p>
-                    </div>
-                    {localFileName && (
-                        <span className="bg-indigo-200 text-indigo-800 text-xs font-semibold px-2 py-1 rounded-full border border-indigo-300">
-                            Conectado: {localFileName}
-                        </span>
-                    )}
-                </div>
-
-                {!isFSAASupported ? (
-                    <div className="text-sm text-amber-800 bg-amber-50 p-3 rounded-md border border-amber-200 mt-3 space-y-2">
-                         <p className="font-bold">⚠️ Esta función requiere un navegador compatible.</p>
-                         <p>Firefox y Safari bloquean el acceso directo al sistema de archivos por seguridad. Para usar la sincronización automática, debes usar <strong>Chrome, Edge o Opera</strong> en un ordenador.</p>
-                         <p className="text-xs mt-1 italic">Si no puedes cambiar de navegador, utiliza los botones de "Exportar/Importar Copia" de abajo manualmente.</p>
-                    </div>
-                ) : (
-                    <div className="mt-4 flex gap-3">
-                         <button 
-                            onClick={onOpenLocalFile} 
-                            className={`flex-1 py-2 rounded-md font-medium shadow-sm transition-colors ${localFileName ? 'bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                        >
-                            {localFileName ? 'Cambiar Archivo Local' : 'Abrir Archivo Existente'}
-                        </button>
-                        <button 
-                            onClick={onSaveToLocalFile} 
-                            className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium"
-                        >
-                            Crear Nuevo Archivo
-                        </button>
-                    </div>
-                )}
-            </div>
-
+         
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
                     <h4 className="font-bold text-blue-800 mb-2">Exportar Copia de Seguridad</h4>
                     <p className="text-sm text-blue-700 mb-4">Descarga manual de un archivo .db con TODOS tus datos.</p>
-                    <button onClick={handleExportClick} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors shadow-sm font-medium">
+                    <button onClick={onSaveToLocalFile} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors shadow-sm font-medium">
                         Descargar Copia (.db)
                     </button>
                 </div>
@@ -1024,7 +964,7 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
                 <div className="p-4 border rounded-lg bg-green-50 border-green-200">
                     <h4 className="font-bold text-green-800 mb-2">Importar Copia Manual</h4>
                     <p className="text-sm text-green-700 mb-4">Sube un archivo .db para restaurar tus datos (reemplaza lo actual).</p>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".db,.sqlite" className="hidden" />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".db,.sqlite,.sqlite3" className="hidden" />
                     <button onClick={handleImportClick} className="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 transition-colors shadow-sm font-medium">
                         Subir Archivo (.db)
                     </button>
@@ -1037,8 +977,7 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
                         Generar Informes
                     </button>
                 </div>
-            </div>
-
+           
             <div className="pt-6 border-t border-red-200 mt-8">
                 <h4 className="text-lg font-bold text-red-800 mb-2">Zona de Peligro</h4>
                 <div className="p-4 border border-red-200 bg-red-50 rounded-lg flex items-center justify-between">
