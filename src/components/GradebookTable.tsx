@@ -838,6 +838,7 @@ const GradebookTable: React.FC<GradebookTableProps> = (props) => {
             classData={classData} 
             period={breakdownData.period} 
             academicConfiguration={academicConfiguration} 
+            onStudentChange={(newStudent) => setBreakdownData({ ...breakdownData, student: newStudent })}
           />
       )}
       {assignmentForImport && <BulkGradeImportModal isOpen={isBulkImportModalOpen} onClose={() => setIsBulkImportModalOpen(false)} onSave={handleBulkSaveGrades} assignment={assignmentForImport} students={classData.students} />}
