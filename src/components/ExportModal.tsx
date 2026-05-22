@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
 import Modal from './Modal';
-import JSZip from 'jszip/dist/jszip.min.js';
+import JSZip from 'jszip';
 import type { ClassData, Course, KeyCompetence, SpecificCompetence, EvaluationCriterion, AcademicConfiguration, ProgrammingUnit, BasicKnowledge } from '../types';
-import { calculateEvaluationPeriodGradeForStudent, calculateOverallFinalGradeForStudent, calculateStudentCriterionGrades, calculateStudentCompetenceGrades, calculateStudentKeyCompetenceGrades } from '../services/gradeCalculations';
+import { calculateEvaluationPeriodGradeForStudent, calculateOverallFinalGradeForStudent, calculateStudentCriterionGrades, calculateStudentCompetenceGrades, calculateStudentKeyCompetenceGrades } fro[...]
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -23,7 +23,7 @@ const escapeCsvCell = (cell: any): string => {
     return `"${cellStr}"`;
 };
 
-const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, courses, keyCompetences, specificCompetences, evaluationCriteria, programmingUnits, basicKnowledge, academicConfiguration }) => {
+const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, courses, keyCompetences, specificCompetences, evaluationCriteria, programmingUnits, basicKnowledge, academicConfigurati[...]
     const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(new Set(classes.map(c => c.id)));
     const [isGenerating, setIsGenerating] = useState(false);
     
@@ -261,7 +261,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
                             <span className="block text-sm font-semibold text-slate-700 mb-2">Informes de Evaluación por Periodo:</span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {academicConfiguration.evaluationPeriods.map(p => (
-                                    <label key={p.id} className="flex items-center space-x-2 p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all cursor-pointer border border-transparent hover:border-slate-200">
+                                    <label key={p.id} className="flex items-center space-x-2 p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all cursor-pointer border border-transparent [...]>
                                         <input
                                             type="checkbox"
                                             checked={selectedPeriodIds.has(p.id)}
@@ -304,7 +304,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
                         type="button" 
                         onClick={onClose} 
                         disabled={isGenerating}
-                        className="bg-white py-2 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        className="bg-white py-2 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[...]
                     >
                         Cancelar
                     </button>
@@ -312,13 +312,13 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
                         type="button"
                         onClick={handleExport}
                         disabled={selectedClassIds.size === 0 || isGenerating}
-                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 min-w-[140px]"
+                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-n[...]
                     >
                         {isGenerating ? (
                             <span className="flex items-center">
                                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.[...]
                                 </svg>
                                 Generando...
                             </span>
