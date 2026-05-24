@@ -23,7 +23,7 @@ Extrae el zip en el Escritorio o en Descargas.
 ### 📋 PASO 2 — Copia SOLO estos archivos al proyecto sin la terminal, a mano.
 
 ZIP=~/Desktop/cuadernoprofesorado
-PROYECTO=~/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/tauri-cuaderno/src
+PROYECTO=~/Desktop/PROYECTOS/CUADERNO/cuadernoprofesorado/cuadernoprofesoradoGitHub/tauri-cuaderno/src
 
 cp $ZIP/constants.ts $PROYECTO/
 cp $ZIP/types.ts $PROYECTO/
@@ -158,6 +158,8 @@ git push --tags
 
 ⚠️ El tag vX.X es lo que dispara la compilación.
 Sin tag → no se compila nada.
+⚠️ cuando pide usuario de github: imanlost
+⚠️ la contraseña es el token activo
 
 ### ▶️ PASO 1bis — lanzar action habiendo hecho los cambios en GitHub directamente
 

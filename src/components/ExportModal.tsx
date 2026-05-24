@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import Modal from './Modal';
-import JSZip from 'jszip';
+import JSZip from 'jszip/dist/jszip.min.js';
 import type { ClassData, Course, KeyCompetence, SpecificCompetence, EvaluationCriterion, AcademicConfiguration, ProgrammingUnit, BasicKnowledge } from '../types';
 import { calculateEvaluationPeriodGradeForStudent, calculateOverallFinalGradeForStudent, calculateStudentCriterionGrades, calculateStudentCompetenceGrades, calculateStudentKeyCompetenceGrades } from '../services/gradeCalculations';
 
@@ -30,6 +30,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
     // New selected elements state
     const [includeFinalGrades, setIncludeFinalGrades] = useState(true);
     const [includePlanning, setIncludePlanning] = useState(true);
+    const [includeFinalCourseReport, setIncludeFinalCourseReport] = useState(true);
     const [selectedPeriodIds, setSelectedPeriodIds] = useState<Set<string>>(new Set(academicConfiguration.evaluationPeriods.map(p => p.id)));
 
     const handleSelectAll = (checked: boolean) => {
@@ -68,7 +69,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
         }
 
         const periodsToExport = academicConfiguration.evaluationPeriods.filter(p => selectedPeriodIds.has(p.id));
-        const hasWorkSelected = includeFinalGrades || includePlanning || periodsToExport.length > 0;
+        const hasWorkSelected = includeFinalGrades || includePlanning || includeFinalCourseReport || periodsToExport.length > 0;
 
         if (!hasWorkSelected) {
             alert("Por favor, selecciona al menos un tipo de informe para exportar.");
@@ -110,11 +111,17 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
             }
 
             // Report per selected period
-            for (const period of periodsToExport) {
+            const periodsToIterate = includeFinalCourseReport 
+                ? [...periodsToExport, { id: 'FINAL', name: 'Curso Completo' }]
+                : periodsToExport;
+
+            for (const period of periodsToIterate) {
+                const evalPeriodId = period.id === 'FINAL' ? undefined : period.id;
+
                 // 2. Criteria Report CSV
                 const criteriaHeaders = ['Alumn@', ...classCriteria.map(c => c.code)];
                 const criteriaRows = classData.students.map(student => {
-                    const studentGrades = calculateStudentCriterionGrades(student.id, classData, classCriteria, period.id);
+                    const studentGrades = calculateStudentCriterionGrades(student.id, classData, classCriteria, evalPeriodId);
                     return [student.name, ...classCriteria.map(c => studentGrades.get(c.id)?.toFixed(2) ?? '')];
                 });
                 const criteriaCsvContent = [criteriaHeaders, ...criteriaRows].map(row => row.map(escapeCsvCell).join(',')).join('\n');
@@ -123,7 +130,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
                 // 3. Specific Competences Report CSV
                 const scHeaders = ['Alumn@', ...classCompetences.map(c => c.code)];
                 const scRows = classData.students.map(student => {
-                    const studentGrades = calculateStudentCompetenceGrades(student.id, classData, classCriteria, classCompetences, period.id);
+                    const studentGrades = calculateStudentCompetenceGrades(student.id, classData, classCriteria, classCompetences, evalPeriodId);
                     return [student.name, ...classCompetences.map(c => studentGrades.get(c.id)?.toFixed(2) ?? '')];
                 });
                 const scCsvContent = [scHeaders, ...scRows].map(row => row.map(escapeCsvCell).join(',')).join('\n');
@@ -132,7 +139,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
                 // 4. Key Competences Report CSV
                 const kcHeaders = ['Alumn@', ...keyCompetences.map(kc => kc.code)];
                 const kcRows = classData.students.map(student => {
-                        const studentGrades = calculateStudentKeyCompetenceGrades(student.id, classData, classCriteria, classCompetences, keyCompetences, period.id);
+                        const studentGrades = calculateStudentKeyCompetenceGrades(student.id, classData, classCriteria, classCompetences, keyCompetences, evalPeriodId);
                     return [student.name, ...keyCompetences.map(kc => studentGrades.get(kc.id)?.toFixed(2) ?? '')];
                 });
                 const kcCsvContent = [kcHeaders, ...kcRows].map(row => row.map(escapeCsvCell).join(',')).join('\n');
@@ -264,6 +271,15 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, classes, cou
                                         <span className="text-sm text-slate-600">{p.name}</span>
                                     </label>
                                 ))}
+                                <label className="flex items-center space-x-2 p-2 hover:bg-slate-100 hover:shadow-sm rounded-lg transition-all cursor-pointer border border-slate-200 bg-slate-50">
+                                    <input
+                                        type="checkbox"
+                                        checked={includeFinalCourseReport}
+                                        onChange={(e) => setIncludeFinalCourseReport(e.target.checked)}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm font-medium text-slate-700">Curso Completo (Final)</span>
+                                </label>
                             </div>
                             <p className="mt-2 text-[10px] text-slate-400 italic">
                                 * Cada periodo seleccionado generará informes detallados de criterios y competencias.
