@@ -60,10 +60,10 @@ if (stalePath) {
 }
 
 const tauriArgs = process.argv.slice(2)
-const tauriBin = path.join(projectRoot, 'node_modules', '.bin', 'tauri')
-const result = spawnSync(tauriBin, tauriArgs, {
+const result = spawnSync('npx', ['tauri', ...tauriArgs], {
   cwd: projectRoot,
   stdio: 'inherit',
+  shell: true,
 })
 
 process.exit(result.status ?? 1)
