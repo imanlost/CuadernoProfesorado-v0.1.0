@@ -61,6 +61,10 @@ const indexedDB = {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
+        if (!db.objectStoreNames.contains(DB_STORE_NAME)) {
+            resolve(undefined);
+            return;
+        }
         const tx = db.transaction(DB_STORE_NAME, 'readonly');
         const store = tx.objectStore(DB_STORE_NAME);
         const getRequest = store.get('db_file');
@@ -68,7 +72,9 @@ const indexedDB = {
         getRequest.onerror = () => reject(getRequest.error);
       };
       request.onupgradeneeded = () => {
-        request.result.createObjectStore(DB_STORE_NAME);
+        if (!request.result.objectStoreNames.contains(DB_STORE_NAME)) {
+            request.result.createObjectStore(DB_STORE_NAME);
+        }
       };
     });
   },
@@ -108,9 +114,12 @@ function useDatabase() {
                     loadedState.evaluationTools = [];
                 }
                 return loadedState;
+            } else {
+                throw new Error("La base de datos no contiene la tabla de datos del cuaderno ('app_data').");
             }
         } catch (e) {
-            console.error("Could not read from DB, maybe it's new?", e);
+            console.error("Error reading from SQLite Database:", e);
+            alert("El archivo seleccionado no es una copia de seguridad válida de esta aplicación (falta tabla principal).");
         }
         return null;
     };
