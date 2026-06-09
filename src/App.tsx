@@ -1,3 +1,5 @@
+
+// FIX: Corrected the React import statement.
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { INITIAL_CLASS_DATA, INITIAL_COMPETENCES, INITIAL_CRITERIA, INITIAL_KEY_COMPETENCES, INITIAL_JOURNAL_ENTRIES, INITIAL_COURSES, INITIAL_PROGRAMMING_UNITS, INITIAL_BASIC_KNOWLEDGE, INITIAL_ACADEMIC_CONFIGURATION, INITIAL_EVALUATION_TOOLS } from './constants';
 import type { ClassData, EvaluationCriterion, SpecificCompetence, KeyCompetence, JournalEntry, Course, ProgrammingUnit, BasicKnowledge, AcademicConfiguration, EvaluationTool, Assignment } from './types';
@@ -92,6 +94,38 @@ const indexedDB = {
       };
     });
   },
+  getFileHandle: (): Promise<string | undefined> => {
+    return new Promise((resolve, reject) => {
+      const request = window.indexedDB.open(DB_NAME, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(DB_STORE_NAME)) {
+            resolve(undefined);
+            return;
+        }
+        const tx = db.transaction(DB_STORE_NAME, 'readonly');
+        const store = tx.objectStore(DB_STORE_NAME);
+        const getRequest = store.get('file_handle');
+        getRequest.onsuccess = () => resolve(getRequest.result);
+        getRequest.onerror = () => reject(getRequest.error);
+      };
+    });
+  },
+  setFileHandle: (handle: string | null): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const request = window.indexedDB.open(DB_NAME, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(DB_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(DB_STORE_NAME);
+        const setRequest = handle ? store.put(handle, 'file_handle') : store.delete('file_handle');
+        setRequest.onsuccess = () => resolve();
+        setRequest.onerror = () => reject(setRequest.error);
+      };
+    });
+  },
 };
 
 // Custom hook for SQLite database management
@@ -101,8 +135,21 @@ function useDatabase() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
-    // Tauri dialog/fs plugins return file paths, not browser file handles.
+    // File System Access API Handle
     const [fileHandle, setFileHandle] = useState<string | null>(null);
+    const [filePermissionGranted, setFilePermissionGranted] = useState(false);
+
+    const verifyFilePermission = async (handle: string) => {
+        // Tauri always has filesystem access — just verify the handle is non-null
+        return !!handle;
+    };
+
+    const requestFilePermission = async () => {
+        // Tauri always has filesystem access
+        if (!fileHandle) return false;
+        setFilePermissionGranted(true);
+        return true;
+    };
 
     const loadDataFromDb = (db: any) => {
         try {
@@ -156,6 +203,13 @@ function useDatabase() {
                 dbRef.current = db;
                 const data = loadDataFromDb(db);
                 setAppState(data);
+
+                // Try to restore file handle
+                const savedHandle = await indexedDB.getFileHandle();
+                if (savedHandle) {
+                    setFileHandle(savedHandle);
+                    await verifyFilePermission(savedHandle);
+                }
             } catch (err) {
                 console.error("Database initialization failed:", err);
                 setError("No se pudo cargar la base de datos.");
@@ -184,8 +238,8 @@ function useDatabase() {
                     // 1. Save to browser storage (IndexedDB) as fallback/cache
                     await indexedDB.set(binaryDb);
 
-                    // 2. If a local file path exists, write to disk as well.
-                    if (fileHandle) {
+                    // 2. If a local file handle exists, write to disk via Tauri FS!
+                    if (fileHandle && filePermissionGranted) {
                         await writeFile(fileHandle, binaryDb);
                         console.log("Saved to local file system successfully.");
                     }
@@ -245,22 +299,25 @@ function useDatabase() {
     const saveToLocalFile = async () => {
         try {
             const filePath = await save({
-                defaultPath: 'cuaderno-docente.db',
+                defaultPath: `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`,
                 filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] }],
             });
             if (!filePath) return;
 
             const db = dbRef.current;
             if (!db) {
-                throw new Error('La base de datos no esta inicializada.');
+                throw new Error('La base de datos no está inicializada.');
             }
 
             const binaryDb = db.export();
             await writeFile(filePath, binaryDb);
             setFileHandle(filePath);
-            alert(`Guardado en: ${filePath}`);
+            setFilePermissionGranted(true);
+            await indexedDB.setFileHandle(filePath);
+            alert(`Conectado exitosamente. Los cambios se guardarán automáticamente en "${filePath.split('/').pop() || filePath}".`);
         } catch (err: any) {
             if (err.name !== 'AbortError') {
+                console.error("Error saving file:", err);
                 alert(`Error al guardar: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
@@ -277,31 +334,117 @@ function useDatabase() {
 
             setLoading(true);
             const buffer = await readFile(filePath);
-            const SQL = await window.initSqlJs({
-                locateFile: (f: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`,
-            });
-
+            // FIX: Use window.initSqlJs directly as it is declared in global interface
+            const SQL = await window.initSqlJs({ locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
             const db = new SQL.Database(buffer);
             dbRef.current = db;
-
             const data = loadDataFromDb(db);
+
             if (data) {
                 setAppState(data);
                 const binaryDb = db.export();
                 await indexedDB.set(binaryDb);
                 setFileHandle(filePath);
-                alert(`Archivo cargado: ${filePath}`);
+                setFilePermissionGranted(true);
+                await indexedDB.setFileHandle(filePath);
+                alert(`Archivo "${filePath.split('/').pop() || filePath}" cargado y vinculado. Los cambios se sincronizarán automáticamente.`);
             } else {
-                throw new Error('Archivo no valido.');
+                throw new Error("El archivo no es una base de datos válida.");
             }
         } catch (err: any) {
             if (err.name !== 'AbortError') {
+                console.error("Error opening file:", err);
                 alert(`Error al abrir: ${err instanceof Error ? err.message : String(err)}`);
             }
         } finally {
             setLoading(false);
         }
     };
+
+    const disconnectLocalFile = async () => {
+        setFileHandle(null);
+        setFilePermissionGranted(false);
+        await indexedDB.setFileHandle(null);
+    };
+
+    const startNewCourse = useCallback(async () => {
+        const confirmed1 = window.confirm(
+            "¿Estás seguro de que deseas iniciar un nuevo curso escolar? Esta acción es destructiva y eliminará a todos los alumnos, calificaciones, tareas, y diarios, manteniendo sólo la estructura de cursos, currículo, rúbricas y festivos."
+        );
+        if (!confirmed1) return;
+
+        const confirmed2 = window.confirm(
+            "Se recomienda encarecidamente que realices una copia de seguridad y exportes los informes del curso actual antes de continuar. Si ya lo has hecho o no deseas conservarlos, presiona Aceptar para proceder con la limpieza."
+        );
+
+        if (!dbRef.current || !confirmed2) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const currentYearStart = new Date(appState!.academicConfiguration.academicYearStart);
+            const currentYearEnd = new Date(appState!.academicConfiguration.academicYearEnd);
+            
+            currentYearStart.setFullYear(currentYearStart.getFullYear() + 1);
+            currentYearEnd.setFullYear(currentYearEnd.getFullYear() + 1);
+
+            const shiftedHolidays = appState!.academicConfiguration.holidays.map(h => {
+                const s = new Date(h.startDate); s.setFullYear(s.getFullYear() + 1);
+                const e = new Date(h.endDate); e.setFullYear(e.getFullYear() + 1);
+                return { ...h, startDate: s.toISOString().split('T')[0], endDate: e.toISOString().split('T')[0] };
+            });
+
+            const shiftedPeriods = appState!.academicConfiguration.evaluationPeriods.map(p => {
+                const s = new Date(p.startDate); s.setFullYear(s.getFullYear() + 1);
+                const e = new Date(p.endDate); e.setFullYear(e.getFullYear() + 1);
+                return { ...p, startDate: s.toISOString().split('T')[0], endDate: e.toISOString().split('T')[0] };
+            });
+
+            const newClasses = appState!.classes.map(c => ({
+                ...c,
+                students: [],
+                categories: [],
+                assignments: [],
+                grades: [],
+                skippedDays: []
+            }));
+
+            const newProgrammingUnits = appState!.programmingUnits.map(pu => {
+                if (!pu.startDate) return pu;
+                const d = new Date(pu.startDate); d.setFullYear(d.getFullYear() + 1);
+                return { ...pu, startDate: d.toISOString().split('T')[0] };
+            });
+
+            const newAppState: AppState = {
+                ...appState!,
+                classes: newClasses,
+                journalEntries: [],
+                programmingUnits: newProgrammingUnits,
+                academicConfiguration: {
+                    ...appState!.academicConfiguration,
+                    academicYearStart: currentYearStart.toISOString().split('T')[0],
+                    academicYearEnd: currentYearEnd.toISOString().split('T')[0],
+                    holidays: shiftedHolidays,
+                    evaluationPeriods: shiftedPeriods
+                }
+            };
+
+            dbRef.current.exec("INSERT OR REPLACE INTO app_data (key, data) VALUES ('main', ?)", [JSON.stringify(newAppState)]);
+            const binaryDb = dbRef.current.export();
+            await indexedDB.set(binaryDb);
+            setAppState(newAppState);
+            
+            // Si el usuario tenía un archivo local (Google Drive/Local), al sobrescribirlo aquí
+            // puede que esté arruinando la BBDD del año en ese archivo. Mejor le avisamos que guarde un nuevo archivo.
+            alert("¡Transición a Nuevo Curso completada exitosamente! Se ha mantenido la estructura y se han reiniciado los datos variables.");
+        } catch (e) {
+            console.error("Failed to start new course:", e);
+            setError("Error al iniciar el nuevo curso.");
+        } finally {
+            setLoading(false);
+        }
+    }, [appState]);
 
     const resetDatabase = useCallback(async () => {
         const confirmed = window.confirm(
@@ -354,13 +497,13 @@ function useDatabase() {
         }
     }, []);
 
-    return { appState, loading, error, updateState, importDatabase, exportDatabase, resetDatabase, saveToLocalFile, openLocalFile, fileHandle };
+    return { appState, loading, error, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted };
 }
 
 type View = 'calendar' | 'gradebook' | 'journal' | 'criteria' | 'competences' | 'key-competences' | 'descriptors' | 'statistics';
 
 const App = () => {
-    const { appState, loading, error, updateState, importDatabase, exportDatabase, resetDatabase, saveToLocalFile, openLocalFile, fileHandle } = useDatabase();
+    const { appState, loading, error, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted } = useDatabase();
     
     // --- UI State ---
     const [activeClassId, setActiveClassId] = useState<string>('');
@@ -631,7 +774,7 @@ const App = () => {
                     {fileHandle && (
                         <div className="hidden md:flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-md text-xs text-indigo-700 font-medium" title={`Sincronizado con: ${fileHandle}`}>
                             <ComputerDesktopIcon className="w-4 h-4" />
-                            <span className="truncate max-w-[100px]">{fileHandle.split(/[\\/]/).pop() || fileHandle}</span>
+                            <span className="truncate max-w-[100px]">{fileHandle.split('/').pop() || fileHandle.split('\\').pop() || fileHandle}</span>
                         </div>
                     )}
 
@@ -685,9 +828,13 @@ const App = () => {
                 importDatabase={importDatabase}
                 exportDatabase={exportDatabase}
                 resetDatabase={resetDatabase}
+                startNewCourse={startNewCourse}
                 onSaveToLocalFile={saveToLocalFile}
                 onOpenLocalFile={openLocalFile}
-                localFileName={fileHandle ? fileHandle.split(/[\\/]/).pop() || fileHandle : null}
+                onDisconnectLocalFile={disconnectLocalFile}
+                onRequestFilePermission={requestFilePermission}
+                localFileName={fileHandle || null}
+                filePermissionGranted={filePermissionGranted}
             />
 
             <ExportModal

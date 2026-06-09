@@ -30,6 +30,7 @@ interface SettingsModalProps {
     importDatabase: (buffer: ArrayBuffer) => Promise<void>;
     exportDatabase: () => Uint8Array | null;
     resetDatabase: () => Promise<void>;
+    startNewCourse: () => Promise<void>;
     basicKnowledge: BasicKnowledge[];
     setBasicKnowledge: (updater: React.SetStateAction<BasicKnowledge[]>) => void;
     academicConfiguration: AcademicConfiguration;
@@ -41,7 +42,10 @@ interface SettingsModalProps {
     // New props for File System Access API
     onSaveToLocalFile: () => Promise<void>;
     onOpenLocalFile: () => Promise<void>;
+    onDisconnectLocalFile: () => Promise<void>;
+    onRequestFilePermission: () => Promise<boolean>;
     localFileName: string | null;
+    filePermissionGranted: boolean;
 }
 
 type SettingsView = 'classes' | 'schedule' | 'courses' | 'academicConfig' | 'curriculum' | 'planner' | 'evaluationTools' | 'backup';
@@ -937,7 +941,7 @@ const AcademicConfigManager: React.FC<{
 };
 
 // ... (BackupManager component updated below) ...
-const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDatabase, onOpenExportModal, onSaveToLocalFile, onOpenLocalFile, localFileName }) => {
+const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDatabase, startNewCourse, onOpenExportModal, onSaveToLocalFile, onOpenLocalFile, onDisconnectLocalFile, onRequestFilePermission, localFileName, filePermissionGranted }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleImportClick = () => fileInputRef.current?.click();
@@ -950,13 +954,129 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    const handleExportClick = async () => {
+        const data = exportDatabase();
+        if (!data) return;
+
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await (window as any).showSaveFilePicker({
+                    suggestedName: `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`,
+                    types: [{
+                        description: 'SQLite Database',
+                        accept: { 'application/x-sqlite3': ['.db', '.sqlite', '.sqlite3'] },
+                    }],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(data);
+                await writable.close();
+                return;
+            } catch (err: any) {
+                if (err.name === 'AbortError') return;
+                console.error("Picker failed, falling back to download", err);
+            }
+        }
+
+        // Fallback for browsers without showSaveFilePicker
+        const blob = new Blob([data], { type: 'application/x-sqlite3' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const isFSAASupported = 'showOpenFilePicker' in window;
+
     return (
-         
+        <div className="space-y-6">
+            <h3 className="text-xl font-bold text-slate-800">Copia de Seguridad y Datos</h3>
+
+             {/* Local File Sync Section */}
+            <div className="p-4 border rounded-lg bg-indigo-50 border-indigo-200">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <h4 className="font-bold text-indigo-800 flex items-center gap-2">
+                            <ComputerDesktopIcon className="w-5 h-5"/>
+                            Modo Archivo Local (Sincronización)
+                        </h4>
+                        <p className="text-sm text-indigo-700 mt-1">
+                            Vincula la aplicación a un archivo .db en tu ordenador. 
+                            Los cambios se guardarán automáticamente en ese archivo.
+                        </p>
+                    </div>
+                    {localFileName && (
+                        <div className="flex flex-col items-end gap-1">
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${filePermissionGranted ? 'bg-green-100 text-green-800 border-green-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
+                                {filePermissionGranted ? 'Sincronización Activa' : 'Permiso Requerido'}
+                            </span>
+                            <span className="text-[10px] text-indigo-600 font-medium">{localFileName}</span>
+                        </div>
+                    )}
+                </div>
+
+                {!isFSAASupported ? (
+                    <div className="text-sm text-amber-800 bg-amber-50 p-3 rounded-md border border-amber-200 mt-3 space-y-2">
+                         <p className="font-bold">⚠️ Esta función requiere un navegador compatible.</p>
+                         <p>Firefox y Safari bloquean el acceso directo al sistema de archivos por seguridad. Para usar la sincronización automática, debes usar <strong>Chrome, Edge o Opera</strong> en un ordenador.</p>
+                    </div>
+                ) : (
+                    <div className="mt-4 space-y-3">
+                        {localFileName ? (
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                {!filePermissionGranted && (
+                                    <button 
+                                        onClick={onRequestFilePermission} 
+                                        className="flex-1 bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors shadow-sm font-medium text-sm"
+                                    >
+                                        Re-conectar y Dar Permiso
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={onDisconnectLocalFile} 
+                                    className="flex-1 bg-white text-red-600 border border-red-200 py-2 rounded-md hover:bg-red-50 transition-colors shadow-sm font-medium text-sm"
+                                >
+                                    Desvincular Archivo
+                                </button>
+                                <button 
+                                    onClick={onOpenLocalFile} 
+                                    className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium text-sm"
+                                >
+                                    Cambiar Archivo
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={onOpenLocalFile} 
+                                    className="flex-1 bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors shadow-sm font-medium"
+                                >
+                                    Abrir y Vincular Archivo
+                                </button>
+                                <button 
+                                    onClick={onSaveToLocalFile} 
+                                    className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium"
+                                >
+                                    Crear Nuevo y Vincular
+                                </button>
+                            </div>
+                        )}
+                        
+                        {localFileName && !filePermissionGranted && (
+                            <p className="text-[11px] text-indigo-600 italic bg-white/50 p-2 rounded border border-indigo-100">
+                                * Por seguridad, el navegador pide permiso de escritura cada vez que abres la aplicación. Haz clic en "Re-conectar" para habilitar el autoguardado.
+                            </p>
+                        )}
+                    </div>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
                     <h4 className="font-bold text-blue-800 mb-2">Exportar Copia de Seguridad</h4>
                     <p className="text-sm text-blue-700 mb-4">Descarga manual de un archivo .db con TODOS tus datos.</p>
-                    <button onClick={onSaveToLocalFile} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors shadow-sm font-medium">
+                    <button onClick={handleExportClick} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors shadow-sm font-medium">
                         Descargar Copia (.db)
                     </button>
                 </div>
@@ -977,7 +1097,21 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
                         Generar Informes
                     </button>
                 </div>
-           
+            </div>
+
+            <div className="pt-6 border-t border-amber-200 mt-8">
+                <h4 className="text-lg font-bold text-amber-800 mb-2">Transición a Nuevo Curso</h4>
+                <div className="p-4 border border-amber-200 bg-amber-50 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <p className="font-bold text-amber-900">Iniciar Nuevo Curso (Limpieza de alumnado y calificaciones)</p>
+                        <p className="text-sm text-amber-800">Esta acción eliminará todos los alumnos, calificaciones, tareas y diarios de clase. <strong>Conservará intacta</strong> toda tu estructura inamovible (currículo, programación, configuración académica y festivos avanzados 1 año).</p>
+                    </div>
+                    <button onClick={startNewCourse} className="whitespace-nowrap bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 font-medium shadow-sm w-full md:w-auto text-center shrink-0">
+                        Iniciar Nuevo Curso
+                    </button>
+                </div>
+            </div>
+
             <div className="pt-6 border-t border-red-200 mt-8">
                 <h4 className="text-lg font-bold text-red-800 mb-2">Zona de Peligro</h4>
                 <div className="p-4 border border-red-200 bg-red-50 rounded-lg flex items-center justify-between">
