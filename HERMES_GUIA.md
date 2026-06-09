@@ -154,8 +154,8 @@ El tag `vX.Y` dispara el workflow de GitHub Actions que compila los instaladores
 
 | Repo | Último tag | Fecha |
 |---|---|---|
-| CuadernoProfesorado-v1.0 (web) | v2.5 | 2026-06-09 |
-| CuadernoProfesorado-v0.1.0 (Tauri) | v2.7 | 2026-06-09 |
+| CuadernoProfesorado-v1.0 (web) | v2.6 | 2026-06-09 |
+| CuadernoProfesorado-v0.1.0 (Tauri) | v2.8 | 2026-06-09 |
 
 ---
 
