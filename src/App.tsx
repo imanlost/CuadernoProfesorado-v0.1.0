@@ -28,8 +28,6 @@ import SettingsModal from './components/SettingsModal';
 import ExportModal from './components/ExportModal';
 import CalendarView from './components/CalendarView';
 import Logo from './components/Logo';
-import { open as openDialog, save } from '@tauri-apps/plugin-dialog';
-import { readFile, writeFile } from '@tauri-apps/plugin-fs';
 
 // Type for the entire application state
 interface AppState {
@@ -53,13 +51,17 @@ declare global {
 }
 
 // Helper functions for IndexedDB
-const DB_NAME = 'gradebook-sqlite-db';
+const getDBName = () => {
+    const wsId = localStorage.getItem('cuaderno_active_workspace') || 'default';
+    return wsId === 'default' ? 'gradebook-sqlite-db' : `gradebook-sqlite-db-${wsId}`;
+};
 const DB_STORE_NAME = 'database';
 
 const indexedDB = {
   get: (): Promise<Uint8Array | undefined> => {
     return new Promise((resolve, reject) => {
-      const request = window.indexedDB.open(DB_NAME, 1);
+      const dbName = getDBName();
+      const request = window.indexedDB.open(dbName, 1);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
@@ -82,7 +84,8 @@ const indexedDB = {
   },
   set: (data: Uint8Array): Promise<void> => {
     return new Promise((resolve, reject) => {
-      const request = window.indexedDB.open(DB_NAME, 1);
+      const dbName = getDBName();
+      const request = window.indexedDB.open(dbName, 1);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
@@ -94,9 +97,10 @@ const indexedDB = {
       };
     });
   },
-  getFileHandle: (): Promise<string | undefined> => {
+  getFileHandle: (): Promise<FileSystemFileHandle | undefined> => {
     return new Promise((resolve, reject) => {
-      const request = window.indexedDB.open(DB_NAME, 1);
+      const dbName = getDBName();
+      const request = window.indexedDB.open(dbName, 1);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
@@ -112,9 +116,10 @@ const indexedDB = {
       };
     });
   },
-  setFileHandle: (handle: string | null): Promise<void> => {
+  setFileHandle: (handle: FileSystemFileHandle | null): Promise<void> => {
     return new Promise((resolve, reject) => {
-      const request = window.indexedDB.open(DB_NAME, 1);
+      const dbName = getDBName();
+      const request = window.indexedDB.open(dbName, 1);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         const db = request.result;
@@ -136,19 +141,36 @@ function useDatabase() {
     const [error, setError] = useState<string | null>(null);
     
     // File System Access API Handle
-    const [fileHandle, setFileHandle] = useState<string | null>(null);
+    const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
     const [filePermissionGranted, setFilePermissionGranted] = useState(false);
 
-    const verifyFilePermission = async (handle: string) => {
-        // Tauri always has filesystem access — just verify the handle is non-null
-        return !!handle;
+    const verifyFilePermission = async (handle: FileSystemFileHandle) => {
+        try {
+            const options = { mode: 'readwrite' };
+            if ((await (handle as any).queryPermission(options)) === 'granted') {
+                setFilePermissionGranted(true);
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error("Error verifying permission", e);
+            return false;
+        }
     };
 
     const requestFilePermission = async () => {
-        // Tauri always has filesystem access
         if (!fileHandle) return false;
-        setFilePermissionGranted(true);
-        return true;
+        try {
+            const options = { mode: 'readwrite' };
+            if ((await (fileHandle as any).requestPermission(options)) === 'granted') {
+                setFilePermissionGranted(true);
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error("Error requesting permission", e);
+            return false;
+        }
     };
 
     const loadDataFromDb = (db: any) => {
@@ -238,9 +260,11 @@ function useDatabase() {
                     // 1. Save to browser storage (IndexedDB) as fallback/cache
                     await indexedDB.set(binaryDb);
 
-                    // 2. If a local file handle exists, write to disk via Tauri FS!
+                    // 2. If a local file handle exists, write to disk!
                     if (fileHandle && filePermissionGranted) {
-                        await writeFile(fileHandle, binaryDb);
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(binaryDb);
+                        await writable.close();
                         console.log("Saved to local file system successfully.");
                     }
                 } catch (e) {
@@ -295,70 +319,113 @@ function useDatabase() {
         return null;
     }, []);
 
-    // Tauri file dialog + filesystem handlers
+    // File System Access API Handlers
     const saveToLocalFile = async () => {
-        try {
-            const filePath = await save({
-                defaultPath: `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`,
-                filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] }],
-            });
-            if (!filePath) return;
+        const supportsPicker = 'showSaveFilePicker' in window;
+        const db = dbRef.current;
+        if (!db) return;
+        const binaryDb = db.export();
 
-            const db = dbRef.current;
-            if (!db) {
-                throw new Error('La base de datos no está inicializada.');
-            }
+        if (supportsPicker) {
+            try {
+                const handle = await (window as any).showSaveFilePicker({
+                    suggestedName: `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`,
+                    types: [{
+                        description: 'SQLite Database',
+                        accept: { 'application/x-sqlite3': ['.db', '.sqlite', '.sqlite3'] },
+                    }],
+                });
+                setFileHandle(handle);
+                setFilePermissionGranted(true);
+                await indexedDB.setFileHandle(handle);
 
-            const binaryDb = db.export();
-            await writeFile(filePath, binaryDb);
-            setFileHandle(filePath);
-            setFilePermissionGranted(true);
-            await indexedDB.setFileHandle(filePath);
-            alert(`Conectado exitosamente. Los cambios se guardarán automáticamente en "${filePath.split('/').pop() || filePath}".`);
-        } catch (err: any) {
-            if (err.name !== 'AbortError') {
-                console.error("Error saving file:", err);
-                alert(`Error al guardar: ${err instanceof Error ? err.message : String(err)}`);
+                const writable = await handle.createWritable();
+                await writable.write(binaryDb);
+                await writable.close();
+                alert(`Conectado exitosamente. Los cambios se guardarán automáticamente en "${handle.name}".`);
+                return;
+            } catch (err: any) {
+                if (err.name === 'AbortError') return;
+                console.warn("Picker failed, falling back to download", err);
             }
         }
+
+        // Fallback or No Support: Normal Download
+        const blob = new Blob([binaryDb], { type: 'application/x-sqlite3' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     const openLocalFile = async () => {
-        try {
-            const filePath = await openDialog({
-                filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] }],
-                multiple: false,
-            });
-
-            if (!filePath || typeof filePath !== 'string') return;
-
-            setLoading(true);
-            const buffer = await readFile(filePath);
-            // FIX: Use window.initSqlJs directly as it is declared in global interface
-            const SQL = await window.initSqlJs({ locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
-            const db = new SQL.Database(buffer);
-            dbRef.current = db;
-            const data = loadDataFromDb(db);
-
-            if (data) {
-                setAppState(data);
-                const binaryDb = db.export();
-                await indexedDB.set(binaryDb);
-                setFileHandle(filePath);
-                setFilePermissionGranted(true);
-                await indexedDB.setFileHandle(filePath);
-                alert(`Archivo "${filePath.split('/').pop() || filePath}" cargado y vinculado. Los cambios se sincronizarán automáticamente.`);
-            } else {
-                throw new Error("El archivo no es una base de datos válida.");
+        const supportsPicker = 'showOpenFilePicker' in window;
+        
+        const processFile = async (file: File, handle?: any) => {
+            try {
+                const buffer = await file.arrayBuffer();
+                setLoading(true);
+                const SQL = await window.initSqlJs({ locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+                const db = new SQL.Database(new Uint8Array(buffer));
+                dbRef.current = db;
+                const data = loadDataFromDb(db);
+                
+                if (data) {
+                    setAppState(data);
+                    const binaryDb = db.export(); 
+                    await indexedDB.set(binaryDb);
+                    if (handle) {
+                        setFileHandle(handle);
+                        setFilePermissionGranted(true);
+                        await indexedDB.setFileHandle(handle);
+                        alert(`Archivo "${handle.name}" cargado y vinculado. Los cambios se sincronizarán automáticamente.`);
+                    } else {
+                        alert("Archivo cargado exitosamente.");
+                    }
+                } else {
+                    throw new Error("El archivo no es una base de datos válida.");
+                }
+            } catch (err: any) {
+                console.error(err);
+                alert("Error al cargar el archivo.");
+            } finally {
+                setLoading(false);
             }
-        } catch (err: any) {
-            if (err.name !== 'AbortError') {
-                console.error("Error opening file:", err);
-                alert(`Error al abrir: ${err instanceof Error ? err.message : String(err)}`);
+        };
+
+        if (supportsPicker) {
+            try {
+                const [handle] = await (window as any).showOpenFilePicker({
+                    types: [{
+                        description: 'SQLite Database',
+                        accept: { 'application/x-sqlite3': ['.db', '.sqlite', '.sqlite3'] },
+                    }],
+                    multiple: false
+                });
+                const file = await handle.getFile();
+                await processFile(file, handle);
+                return;
+            } catch (err: any) {
+                if (err.name === 'AbortError') return;
+                console.warn("Picker failed, falling back to standard input", err);
             }
-        } finally {
-            setLoading(false);
         }
+
+        // Fallback: Standard File Input
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.db,.sqlite,.sqlite3';
+        input.onchange = async (e: any) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                await processFile(file);
+            }
+        };
+        input.click();
     };
 
     const disconnectLocalFile = async () => {
@@ -772,9 +839,9 @@ const App = () => {
                 <div className="flex items-center gap-2">
                     {/* Visual Indicator for Sync */}
                     {fileHandle && (
-                        <div className="hidden md:flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-md text-xs text-indigo-700 font-medium" title={`Sincronizado con: ${fileHandle}`}>
+                        <div className="hidden md:flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-md text-xs text-indigo-700 font-medium" title={`Sincronizado con: ${fileHandle.name}`}>
                             <ComputerDesktopIcon className="w-4 h-4" />
-                            <span className="truncate max-w-[100px]">{fileHandle.split('/').pop() || fileHandle.split('\\').pop() || fileHandle}</span>
+                            <span className="truncate max-w-[100px]">{fileHandle.name}</span>
                         </div>
                     )}
 
@@ -833,7 +900,7 @@ const App = () => {
                 onOpenLocalFile={openLocalFile}
                 onDisconnectLocalFile={disconnectLocalFile}
                 onRequestFilePermission={requestFilePermission}
-                localFileName={fileHandle || null}
+                localFileName={fileHandle?.name || null}
                 filePermissionGranted={filePermissionGranted}
             />
 

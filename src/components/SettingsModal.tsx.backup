@@ -30,6 +30,7 @@ interface SettingsModalProps {
     importDatabase: (buffer: ArrayBuffer) => Promise<void>;
     exportDatabase: () => Uint8Array | null;
     resetDatabase: () => Promise<void>;
+    startNewCourse: () => Promise<void>;
     basicKnowledge: BasicKnowledge[];
     setBasicKnowledge: (updater: React.SetStateAction<BasicKnowledge[]>) => void;
     academicConfiguration: AcademicConfiguration;
@@ -41,7 +42,10 @@ interface SettingsModalProps {
     // New props for File System Access API
     onSaveToLocalFile: () => Promise<void>;
     onOpenLocalFile: () => Promise<void>;
+    onDisconnectLocalFile: () => Promise<void>;
+    onRequestFilePermission: () => Promise<boolean>;
     localFileName: string | null;
+    filePermissionGranted: boolean;
 }
 
 type SettingsView = 'classes' | 'schedule' | 'courses' | 'academicConfig' | 'curriculum' | 'planner' | 'evaluationTools' | 'backup';
@@ -937,8 +941,53 @@ const AcademicConfigManager: React.FC<{
 };
 
 // ... (BackupManager component updated below) ...
-const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDatabase, onOpenExportModal, onSaveToLocalFile, onOpenLocalFile, localFileName }) => {
+const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDatabase, startNewCourse, onOpenExportModal, onSaveToLocalFile, onOpenLocalFile, onDisconnectLocalFile, onRequestFilePermission, localFileName, filePermissionGranted }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [workspaces, setWorkspaces] = useState<{id: string, name: string}[]>([]);
+    const [activeWorkspace, setActiveWorkspace] = useState<string>('default');
+    const [newWorkspaceName, setNewWorkspaceName] = useState('');
+
+    useEffect(() => {
+        const ws = localStorage.getItem('cuaderno_workspaces');
+        if (ws) setWorkspaces(JSON.parse(ws));
+        else setWorkspaces([{id: 'default', name: 'Curso de Trabajo'}]);
+        
+        setActiveWorkspace(localStorage.getItem('cuaderno_active_workspace') || 'default');
+    }, []);
+
+    const handleSwitchWorkspace = (id: string) => {
+        localStorage.setItem('cuaderno_active_workspace', id);
+        window.location.reload();
+    };
+
+    const handleCreateWorkspace = () => {
+        if (!newWorkspaceName.trim()) return;
+        const newWs = { id: Date.now().toString(), name: newWorkspaceName.trim() };
+        const updated = [...workspaces, newWs];
+        setWorkspaces(updated);
+        localStorage.setItem('cuaderno_workspaces', JSON.stringify(updated));
+        setNewWorkspaceName('');
+    };
+
+    const handleDeleteWorkspace = (id: string) => {
+        if (workspaces.length <= 1) return alert('No puedes borrar el único entorno de trabajo.');
+        if (!confirm('¿Estás seguro de borrar este Curso/Entorno? Esta acción no se puede deshacer y borrará todos los datos asociados a este curso en este dispositivo.')) return;
+        
+        const dbName = id === 'default' ? 'gradebook-sqlite-db' : `gradebook-sqlite-db-${id}`;
+        const request = window.indexedDB.deleteDatabase(dbName);
+        request.onsuccess = () => {
+            const updated = workspaces.filter(w => w.id !== id);
+            setWorkspaces(updated);
+            localStorage.setItem('cuaderno_workspaces', JSON.stringify(updated));
+            if (activeWorkspace === id) {
+                handleSwitchWorkspace(updated[0].id);
+            }
+        };
+        request.onerror = () => {
+            alert('Error al borrar la base de datos.');
+        }
+    };
 
     const handleImportClick = () => fileInputRef.current?.click();
 
@@ -950,16 +999,37 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handleExportClick = () => {
+    const handleExportClick = async () => {
         const data = exportDatabase();
-        if (data) {
-            const blob = new Blob([data], { type: 'application/x-sqlite3' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `cuaderno_backup_${new Date().toISOString().split('T')[0]}.db`;
-            a.click();
+        if (!data) return;
+
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await (window as any).showSaveFilePicker({
+                    suggestedName: `cuaderno_backup_${workspaces.find(w => w.id === activeWorkspace)?.name || "backup"}_${new Date().toISOString().split('T')[0]}.db`,
+                    types: [{
+                        description: 'SQLite Database',
+                        accept: { 'application/x-sqlite3': ['.db', '.sqlite', '.sqlite3'] },
+                    }],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(data);
+                await writable.close();
+                return;
+            } catch (err: any) {
+                if (err.name === 'AbortError') return;
+                console.error("Picker failed, falling back to download", err);
+            }
         }
+
+        // Fallback for browsers without showSaveFilePicker
+        const blob = new Blob([data], { type: 'application/x-sqlite3' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cuaderno_backup_${workspaces.find(w => w.id === activeWorkspace)?.name || "backup"}_${new Date().toISOString().split('T')[0]}.db`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     const isFSAASupported = 'showOpenFilePicker' in window;
@@ -967,6 +1037,64 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
     return (
         <div className="space-y-6">
             <h3 className="text-xl font-bold text-slate-800">Copia de Seguridad y Datos</h3>
+
+            {/* Workspaces Section */}
+            <div className="p-4 border rounded-lg bg-teal-50 border-teal-200">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <h4 className="font-bold text-teal-800 flex items-center gap-2">
+                            <ComputerDesktopIcon className="w-5 h-5"/>
+                            Múltiples Cursos (Entornos Locales)
+                        </h4>
+                        <p className="text-sm text-teal-700 mt-1">
+                            Crea varios espacios de trabajo en este dispositivo.
+                            Puedes cambiar de curso instantáneamente, cada uno con su propia base de datos guardada en tu navegador.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-4 bg-white rounded-md border border-teal-100 overflow-hidden">
+                    <ul className="divide-y divide-teal-100 max-h-48 overflow-y-auto">
+                        {workspaces.map(ws => (
+                            <li key={ws.id} className={`p-3 flex justify-between items-center ${activeWorkspace === ws.id ? 'bg-teal-100/50' : 'hover:bg-slate-50'}`}>
+                                <div className="flex items-center gap-2">
+                                    <span className={`font-medium ${activeWorkspace === ws.id ? 'text-teal-800' : 'text-slate-700'}`}>{ws.name}</span>
+                                    {activeWorkspace === ws.id && <span className="text-[10px] bg-teal-200 text-teal-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Activo</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {activeWorkspace !== ws.id && (
+                                        <button onClick={() => handleSwitchWorkspace(ws.id)} className="text-xs bg-white border border-teal-300 text-teal-700 px-3 py-1 rounded hover:bg-teal-50 transition-colors shadow-sm">
+                                            Cargar Curso
+                                        </button>
+                                    )}
+                                    {workspaces.length > 1 && (
+                                         <button onClick={() => handleDeleteWorkspace(ws.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-full transition-colors" title="Borrar Curso">
+                                            <TrashIcon className="w-4 h-4"/>
+                                        </button>
+                                    )}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                    <input 
+                        type="text" 
+                        value={newWorkspaceName} 
+                        onChange={(e) => setNewWorkspaceName(e.target.value)} 
+                        placeholder="Ej. Curso 2025/26" 
+                        className="flex-grow p-2 text-sm border rounded-md focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    />
+                    <button 
+                        onClick={handleCreateWorkspace}
+                        disabled={!newWorkspaceName.trim()}
+                        className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-sm font-medium text-sm whitespace-nowrap"
+                    >
+                        Añadir Nuevo
+                    </button>
+                </div>
+            </div>
 
              {/* Local File Sync Section */}
             <div className="p-4 border rounded-lg bg-indigo-50 border-indigo-200">
@@ -977,14 +1105,17 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
                             Modo Archivo Local (Sincronización)
                         </h4>
                         <p className="text-sm text-indigo-700 mt-1">
-                            Abre un archivo directamente desde tu disco duro (ej. en tu carpeta de Dropbox/Drive). 
-                            La aplicación guardará los cambios automáticamente en ese archivo.
+                            Vincula la aplicación a un archivo .db en tu ordenador. 
+                            Los cambios se guardarán automáticamente en ese archivo.
                         </p>
                     </div>
                     {localFileName && (
-                        <span className="bg-indigo-200 text-indigo-800 text-xs font-semibold px-2 py-1 rounded-full border border-indigo-300">
-                            Conectado: {localFileName}
-                        </span>
+                        <div className="flex flex-col items-end gap-1">
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${filePermissionGranted ? 'bg-green-100 text-green-800 border-green-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}`}>
+                                {filePermissionGranted ? 'Sincronización Activa' : 'Permiso Requerido'}
+                            </span>
+                            <span className="text-[10px] text-indigo-600 font-medium">{localFileName}</span>
+                        </div>
                     )}
                 </div>
 
@@ -992,22 +1123,54 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
                     <div className="text-sm text-amber-800 bg-amber-50 p-3 rounded-md border border-amber-200 mt-3 space-y-2">
                          <p className="font-bold">⚠️ Esta función requiere un navegador compatible.</p>
                          <p>Firefox y Safari bloquean el acceso directo al sistema de archivos por seguridad. Para usar la sincronización automática, debes usar <strong>Chrome, Edge o Opera</strong> en un ordenador.</p>
-                         <p className="text-xs mt-1 italic">Si no puedes cambiar de navegador, utiliza los botones de "Exportar/Importar Copia" de abajo manualmente.</p>
                     </div>
                 ) : (
-                    <div className="mt-4 flex gap-3">
-                         <button 
-                            onClick={onOpenLocalFile} 
-                            className={`flex-1 py-2 rounded-md font-medium shadow-sm transition-colors ${localFileName ? 'bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-100' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
-                        >
-                            {localFileName ? 'Cambiar Archivo Local' : 'Abrir Archivo Existente'}
-                        </button>
-                        <button 
-                            onClick={onSaveToLocalFile} 
-                            className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium"
-                        >
-                            Crear Nuevo Archivo
-                        </button>
+                    <div className="mt-4 space-y-3">
+                        {localFileName ? (
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                {!filePermissionGranted && (
+                                    <button 
+                                        onClick={onRequestFilePermission} 
+                                        className="flex-1 bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors shadow-sm font-medium text-sm"
+                                    >
+                                        Re-conectar y Dar Permiso
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={onDisconnectLocalFile} 
+                                    className="flex-1 bg-white text-red-600 border border-red-200 py-2 rounded-md hover:bg-red-50 transition-colors shadow-sm font-medium text-sm"
+                                >
+                                    Desvincular Archivo
+                                </button>
+                                <button 
+                                    onClick={onOpenLocalFile} 
+                                    className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium text-sm"
+                                >
+                                    Cambiar Archivo
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={onOpenLocalFile} 
+                                    className="flex-1 bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors shadow-sm font-medium"
+                                >
+                                    Abrir y Vincular Archivo
+                                </button>
+                                <button 
+                                    onClick={onSaveToLocalFile} 
+                                    className="flex-1 bg-white text-indigo-700 border border-indigo-300 py-2 rounded-md hover:bg-indigo-100 transition-colors shadow-sm font-medium"
+                                >
+                                    Crear Nuevo y Vincular
+                                </button>
+                            </div>
+                        )}
+                        
+                        {localFileName && !filePermissionGranted && (
+                            <p className="text-[11px] text-indigo-600 italic bg-white/50 p-2 rounded border border-indigo-100">
+                                * Por seguridad, el navegador pide permiso de escritura cada vez que abres la aplicación. Haz clic en "Re-conectar" para habilitar el autoguardado.
+                            </p>
+                        )}
                     </div>
                 )}
             </div>
@@ -1024,7 +1187,7 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
                 <div className="p-4 border rounded-lg bg-green-50 border-green-200">
                     <h4 className="font-bold text-green-800 mb-2">Importar Copia Manual</h4>
                     <p className="text-sm text-green-700 mb-4">Sube un archivo .db para restaurar tus datos (reemplaza lo actual).</p>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".db,.sqlite" className="hidden" />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".db,.sqlite,.sqlite3" className="hidden" />
                     <button onClick={handleImportClick} className="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 transition-colors shadow-sm font-medium">
                         Subir Archivo (.db)
                     </button>
@@ -1035,6 +1198,19 @@ const BackupManager: React.FC<any> = ({ importDatabase, exportDatabase, resetDat
                     <p className="text-sm text-slate-600 mb-4">Exporta las calificaciones e informes a hojas de cálculo (Excel/CSV).</p>
                     <button onClick={onOpenExportModal} className="w-full bg-white text-slate-700 border border-slate-300 py-2 rounded-md hover:bg-slate-100 transition-colors shadow-sm font-medium">
                         Generar Informes
+                    </button>
+                </div>
+            </div>
+
+            <div className="pt-6 border-t border-amber-200 mt-8">
+                <h4 className="text-lg font-bold text-amber-800 mb-2">Transición a Nuevo Curso</h4>
+                <div className="p-4 border border-amber-200 bg-amber-50 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <p className="font-bold text-amber-900">Iniciar Nuevo Curso (Limpieza de alumnado y calificaciones)</p>
+                        <p className="text-sm text-amber-800">Esta acción eliminará todos los alumnos, calificaciones, tareas y diarios de clase. <strong>Conservará intacta</strong> toda tu estructura inamovible (currículo, programación, configuración académica y festivos avanzados 1 año).</p>
+                    </div>
+                    <button onClick={startNewCourse} className="whitespace-nowrap bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 font-medium shadow-sm w-full md:w-auto text-center shrink-0">
+                        Iniciar Nuevo Curso
                     </button>
                 </div>
             </div>
