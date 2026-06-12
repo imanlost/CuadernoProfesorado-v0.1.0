@@ -646,7 +646,8 @@ const App = () => {
             
             if (appState.classes.length > 0) {
                 const academicCourses = new Set((appState.courses || []).filter(c => c.type !== 'other').map(c => c.id));
-                const firstAcademicClass = appState.classes.find(c => academicCourses.has(c.courseId));
+                const sortedAcademicClasses = [...appState.classes].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+                const firstAcademicClass = sortedAcademicClasses.find(c => academicCourses.has(c.courseId));
                 setActiveClassId(firstAcademicClass?.id || appState.classes[0].id);
             }
             setInitialized(true);

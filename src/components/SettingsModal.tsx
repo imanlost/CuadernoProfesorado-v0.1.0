@@ -142,7 +142,7 @@ const ClassManager: React.FC<{
     
     const academicClasses = useMemo(() => {
         const academicCourseIds = new Set(courses.filter(c => c.type !== 'other').map(c => c.id));
-        return classes.filter(c => academicCourseIds.has(c.courseId));
+        return classes.filter(c => academicCourseIds.has(c.courseId)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
     }, [classes, courses]);
 
     const [activeClassId, setActiveClassId] = useState(academicClasses[0]?.id || '');
@@ -826,6 +826,32 @@ const AcademicConfigManager: React.FC<{
                 <p className="mt-2 text-[10px] text-blue-500 italic">
                     * Recuerda ajustar también la "Escala de Calificaciones" más abajo para que los colores coincidan con tu criterio.
                 </p>
+            </div>
+
+            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-6">
+                <h4 className="font-bold text-indigo-800 mb-2 flex items-center gap-2">
+                    <DocumentDuplicateIcon className="w-5 h-5" />
+                    Modo de Evaluación (Nota Final)
+                </h4>
+                <p className="text-xs text-indigo-600 mb-3">
+                    Elige cómo se calcula la nota del boletín en el Cuaderno. La vista de Informes siempre será competencial.
+                </p>
+                <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2">
+                        <input type="radio" name="calcMode" value="categories" 
+                            checked={academicConfiguration.calculationMode !== 'competences'} 
+                            onChange={() => handleConfigChange('calculationMode', 'categories')} 
+                            className="text-indigo-600" />
+                        <span className="text-sm font-medium text-slate-700">Clásico (Por Categorías / Instrumentos)</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                        <input type="radio" name="calcMode" value="competences" 
+                            checked={academicConfiguration.calculationMode === 'competences'} 
+                            onChange={() => handleConfigChange('calculationMode', 'competences')} 
+                            className="text-indigo-600" />
+                        <span className="text-sm font-medium text-slate-700">LOMLOE Puro (Media de Competencias Específicas)</span>
+                    </label>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
