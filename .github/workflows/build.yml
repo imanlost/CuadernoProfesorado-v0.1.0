@@ -74,12 +74,13 @@ jobs:
 
       - name: Tauri build (macOS)
         if: matrix.platform == 'macos-latest'
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
-            echo "🍎 Firmando con: $APPLE_SIGNING_IDENTITY"
+          SIGNING_ID="${{ secrets.APPLE_SIGNING_IDENTITY }}"
+          TEAM_ID="${{ secrets.APPLE_TEAM_ID }}"
+          if [ -n "$SIGNING_ID" ]; then
+            export APPLE_SIGNING_IDENTITY="$SIGNING_ID"
+            export APPLE_TEAM_ID="$TEAM_ID"
+            echo "🍎 Firmando con: $SIGNING_ID"
           else
             echo "⚠️  Sin signing identity — se usará ad-hoc signing"
           fi
