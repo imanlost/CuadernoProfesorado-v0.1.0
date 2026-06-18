@@ -33,6 +33,9 @@
       "dmg",
       "msi",
       "nsis"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
   }
 }

@@ -35,12 +35,90 @@ jobs:
       - name: Add macOS targets
         if: matrix.platform == 'macos-latest'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-      - name: Tauri build (Linux/Windows)
+
+      # ── Apple Code Signing Setup ──────────────────────────────────────
+      # Si los secrets existen, importa el certificado en un keychain
+      # temporal y configura las variables de entorno para que Tauri lo use.
+      # Si no existen, el build se hace con ad-hoc signing (el default).
+      - name: Import Apple Developer certificate
+        if: matrix.platform == 'macos-latest'
+        env:
+          P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          P12_PASS: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$P12" ]; then
+            echo "⚠️  APPLE_CERTIFICATE_P12 no configurado — se usará ad-hoc signing"
+            exit 0
+          fi
+          echo "🔐 Importando certificado Apple Developer..."
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$P12_PASS" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "" "$KEYCHAIN_PATH"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "✅ Certificado importado correctamente"
+
+      # ── Tauri Build ───────────────────────────────────────────────────
+      - name: Tauri build (Linux / Windows)
         if: matrix.platform != 'macos-latest'
         run: npm run tauri build
+
       - name: Tauri build (macOS)
         if: matrix.platform == 'macos-latest'
-        run: npm run tauri build -- --target aarch64-apple-darwin
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "🍎 Firmando con: $APPLE_SIGNING_IDENTITY"
+          else
+            echo "⚠️  Sin signing identity — se usará ad-hoc signing"
+          fi
+          npm run tauri build -- --target aarch64-apple-darwin
+
+      # ── Notarization ──────────────────────────────────────────────────
+      # Envía el DMG a Apple para escaneo de malware. Requiere:
+      #   - APPLE_ID
+      #   - APPLE_TEAM_ID
+      #   - APPLE_APP_SPECIFIC_PASSWORD (generada en appleid.apple.com)
+      - name: Notarize DMG
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ]; then
+            echo "⚠️  Credenciales de notarización no configuradas"
+            echo "   El DMG NO estará notarizado. macOS Gatekeeper lo rechazará."
+            echo "   Configura los secrets APPLE_ID, APPLE_TEAM_ID y APPLE_APP_SPECIFIC_PASSWORD"
+            exit 0
+          fi
+          DMG=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg 2>/dev/null | head -1)
+          if [ -z "$DMG" ]; then
+            echo "❌ No se encontró el DMG"
+            exit 1
+          fi
+          echo "📦 Enviando a notarización: $DMG"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_PASSWORD" \
+            --wait
+          echo "✅ Notarización completada. Aplicando staple..."
+          xcrun stapler staple "$DMG"
+          echo "✅ DMG notarizado y listo para distribuir"
+
+      # ── Upload artifacts to GitHub Release ─────────────────────────────
       - name: Upload macOS
         if: matrix.platform == 'macos-latest'
         uses: softprops/action-gh-release@v2
@@ -48,12 +126,16 @@ jobs:
           files: |
             src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+          overwrite: true
+
       - name: Upload Linux
         if: matrix.platform == 'ubuntu-22.04'
         uses: softprops/action-gh-release@v2
         with:
           files: |
             src-tauri/target/release/bundle/deb/*.deb
+          overwrite: true
+
       - name: Upload Windows
         if: matrix.platform == 'windows-latest'
         uses: softprops/action-gh-release@v2
@@ -61,3 +143,4 @@ jobs:
           files: |
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
+          overwrite: true
