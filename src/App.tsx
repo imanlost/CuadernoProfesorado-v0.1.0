@@ -30,6 +30,7 @@ import CalendarView from './components/CalendarView';
 import Logo from './components/Logo';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { writeFile, readFile } from '@tauri-apps/plugin-fs';
+import { invoke } from '@tauri-apps/api/core';
 
 // Type for the entire application state
 interface AppState {
@@ -141,6 +142,10 @@ function useDatabase() {
     const [appState, setAppState] = useState<AppState | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [recovery, setRecovery] = useState(false);
+    const [recoveryBusy, setRecoveryBusy] = useState(false);
+    const [recoveryMsg, setRecoveryMsg] = useState<string | null>(null);
+    const [foundFolders, setFoundFolders] = useState<string[]>([]);
     
     // File System Access API Handle
     const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null);
@@ -198,6 +203,15 @@ function useDatabase() {
     useEffect(() => {
         const initialize = async () => {
             try {
+                // Comprobar el estado del enlace de la base de datos antes de abrirla.
+                if ('__TAURI_INTERNALS__' in window) {
+                    const status = await invoke<any>('check_database_path');
+                    if (!status.ok) {
+                        setRecovery(true);
+                        setLoading(false);
+                        return;
+                    }
+                }
                 // FIX: Use window.initSqlJs directly as it is declared in global interface
                 const SQL = await window.initSqlJs({ locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
                 const savedDb = await indexedDB.get();
@@ -236,7 +250,11 @@ function useDatabase() {
                 }
             } catch (err) {
                 console.error("Database initialization failed:", err);
-                setError("No se pudo cargar la base de datos.");
+                if ('__TAURI_INTERNALS__' in window) {
+                    setRecovery(true);
+                } else {
+                    setError("No se pudo cargar la base de datos.");
+                }
             } finally {
                 setLoading(false);
             }
@@ -620,13 +638,57 @@ function useDatabase() {
         }
     }, []);
 
-    return { appState, loading, error, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted };
+    const applyFolder = useCallback(async (path: string) => {
+        setRecoveryBusy(true);
+        setRecoveryMsg(null);
+        try {
+            await invoke<string>('apply_database_folder', { path });
+            window.location.reload();
+        } catch (e) {
+            setRecoveryMsg('Error al conectar la base de datos: ' + (e instanceof Error ? e.message : String(e)));
+            setRecoveryBusy(false);
+        }
+    }, []);
+
+    const searchDatabase = useCallback(async () => {
+        if (!('__TAURI_INTERNALS__' in window)) return;
+        setRecoveryBusy(true);
+        setRecoveryMsg(null);
+        try {
+            const folders = await invoke<string[]>('search_database_folders');
+            setFoundFolders(folders);
+            if (folders.length === 1) {
+                await applyFolder(folders[0]);
+            } else if (folders.length === 0) {
+                setRecoveryMsg('No se encontró ninguna base de datos automáticamente. Usa "Elegir carpeta manualmente".');
+            }
+        } catch (e) {
+            setRecoveryMsg('Error al buscar: ' + (e instanceof Error ? e.message : String(e)));
+        } finally {
+            setRecoveryBusy(false);
+        }
+    }, [applyFolder]);
+
+    const selectDatabaseFolder = useCallback(async () => {
+        if (!('__TAURI_INTERNALS__' in window)) return;
+        setRecoveryBusy(true);
+        setRecoveryMsg(null);
+        try {
+            await invoke<string>('select_database_folder');
+            window.location.reload();
+        } catch (e) {
+            setRecoveryMsg('Error al seleccionar la carpeta: ' + (e instanceof Error ? e.message : String(e)));
+            setRecoveryBusy(false);
+        }
+    }, []);
+
+    return { appState, loading, error, recovery, recoveryBusy, recoveryMsg, foundFolders, searchDatabase, applyFolder, selectDatabaseFolder, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted };
 }
 
 type View = 'calendar' | 'gradebook' | 'journal' | 'criteria' | 'competences' | 'key-competences' | 'descriptors' | 'statistics';
 
 const App = () => {
-    const { appState, loading, error, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted } = useDatabase();
+    const { appState, loading, error, recovery, recoveryBusy, recoveryMsg, foundFolders, searchDatabase, applyFolder, selectDatabaseFolder, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted } = useDatabase();
     
     // --- UI State ---
     const [activeClassId, setActiveClassId] = useState<string>('');
@@ -728,6 +790,68 @@ const App = () => {
     // --- Render Logic ---
     if (loading) {
         return <div className="flex items-center justify-center min-h-screen bg-slate-100 text-slate-600">Cargando base de datos...</div>;
+    }
+
+    if (recovery) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-slate-100 p-6">
+                <div className="w-full max-w-lg bg-white rounded-xl shadow-md border border-slate-200 p-8">
+                    <h1 className="text-xl font-bold text-slate-800 mb-2">No se pudo cargar la base de datos</h1>
+                    <p className="text-sm text-slate-600 mb-4">
+                        La carpeta donde se guarda el cuaderno no se encuentra o se ha movido. Puedes buscarla automáticamente o indicar dónde está ahora.
+                    </p>
+
+                    {recoveryMsg && (
+                        <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{recoveryMsg}</div>
+                    )}
+
+                    {foundFolders.length > 1 && (
+                        <div className="mb-4">
+                            <p className="text-sm font-semibold text-slate-700 mb-2">Se encontraron varias bases de datos. Elige una:</p>
+                            <div className="flex flex-col gap-2">
+                                {foundFolders.map((f) => (
+                                    <button
+                                        key={f}
+                                        onClick={() => applyFolder(f)}
+                                        disabled={recoveryBusy}
+                                        className="text-left text-sm bg-white border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-100 break-all disabled:bg-slate-100 disabled:text-slate-400"
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                        <button
+                            onClick={searchDatabase}
+                            disabled={recoveryBusy}
+                            className="w-full bg-slate-800 text-white text-sm font-semibold rounded-md px-4 py-2.5 hover:bg-slate-700 disabled:bg-slate-500"
+                        >
+                            Buscar automáticamente
+                        </button>
+                        <button
+                            onClick={selectDatabaseFolder}
+                            disabled={recoveryBusy}
+                            className="w-full bg-white text-slate-700 text-sm font-semibold border border-slate-300 rounded-md px-4 py-2.5 hover:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+                        >
+                            Elegir carpeta manualmente
+                        </button>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="w-full bg-white text-slate-500 text-sm font-medium border border-slate-200 rounded-md px-4 py-2.5 hover:bg-slate-50"
+                        >
+                            Reintentar
+                        </button>
+                    </div>
+
+                    {recoveryBusy && (
+                        <p className="mt-3 text-sm text-slate-500">Trabajando...</p>
+                    )}
+                </div>
+            </div>
+        );
     }
 
     if (error) {
