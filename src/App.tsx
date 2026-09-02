@@ -31,6 +31,7 @@ import Logo from './components/Logo';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { writeFile, readFile } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 // Type for the entire application state
 interface AppState {
@@ -681,6 +682,85 @@ function useDatabase() {
             setRecoveryBusy(false);
         }
     }, []);
+
+    // --- Backup automático (Fase 2) ---
+    const getWorkspaceName = useCallback(() => {
+        let id = 'default';
+        try {
+            id = localStorage.getItem('cuaderno_active_workspace') || 'default';
+            const raw = localStorage.getItem('cuaderno_workspaces');
+            if (raw) {
+                const list = JSON.parse(raw);
+                const found = (list || []).find((w: any) => String(w.id) === String(id));
+                if (found && found.name) return String(found.name).replace(/[^a-zA-Z0-9_-]+/g, '_');
+            }
+        } catch (e) {
+            /* ignore */
+        }
+        return id.replace(/[^a-zA-Z0-9_-]+/g, '_');
+    }, []);
+
+    const runAutoBackup = useCallback(async () => {
+        if (!('__TAURI_INTERNALS__' in window) || !dbRef.current) return;
+        try {
+            const binaryDb = dbRef.current.export();
+            const now = new Date();
+            const pad = (n: number) => String(n).padStart(2, '0');
+            const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+            const result = await invoke<string>('auto_backup', {
+                data: Array.from(binaryDb),
+                workspace: getWorkspaceName(),
+                timestamp: ts,
+            });
+            console.log('Backup automático:', result);
+        } catch (e) {
+            console.error('Backup automático fallido:', e);
+        }
+    }, [getWorkspaceName]);
+
+    // Backup periódico cada 30 minutos
+    useEffect(() => {
+        if (!('__TAURI_INTERNALS__' in window)) return;
+        const interval = setInterval(() => { void runAutoBackup(); }, 30 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, [runAutoBackup]);
+
+    // Backup al cerrar la aplicación
+    useEffect(() => {
+        if (!('__TAURI_INTERNALS__' in window)) return;
+        let disposed = false;
+        let unlisten: (() => void) | null = null;
+        (async () => {
+            try {
+                const appWindow = getCurrentWindow();
+                unlisten = await appWindow.onCloseRequested(async (event) => {
+                    event.preventDefault();
+                    try {
+                        await runAutoBackup();
+                    } catch (e) {
+                        console.error('Backup al cerrar fallido:', e);
+                    }
+                    if (!disposed) {
+                        // destroy() se queda colgado en Wayland/labwc dentro del
+                        // manejador de cierre; salir por comando Rust (exit_app)
+                        // garantiza el cierre real tras completar el backup.
+                        try {
+                            await invoke('exit_app');
+                        } catch (e) {
+                            console.error('exit_app fallido:', e);
+                            try { await appWindow.destroy(); } catch { /* último recurso */ }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('No se pudo registrar el cierre:', e);
+            }
+        })();
+        return () => {
+            disposed = true;
+            if (unlisten) unlisten();
+        };
+    }, [runAutoBackup]);
 
     return { appState, loading, error, recovery, recoveryBusy, recoveryMsg, foundFolders, searchDatabase, applyFolder, selectDatabaseFolder, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted };
 }
