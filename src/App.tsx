@@ -38,6 +38,7 @@ installToastAlertBridge();
 import { writeFile, readFile } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getVersion } from '@tauri-apps/api/app';
 
 // Sustituye los alert() nativos (mal centrados en WebKitGTK) por notificaciones toast.
 // Los confirm() destructivos usan ConfirmDialog (diálogo propio centrado).
@@ -780,6 +781,11 @@ function useDatabase() {
 
 type View = 'calendar' | 'gradebook' | 'journal' | 'criteria' | 'competences' | 'key-competences' | 'descriptors' | 'statistics';
 
+// Versión de respaldo (solo si getVersion() no está disponible, p. ej. `vite dev` sin Tauri).
+// La versión real se lee del binario con getVersion() y siempre manda.
+// REGLA: mantener al día con package.json en cada release (ver skill cuaderno-profesorado-release).
+const APP_VERSION_FALLBACK = '2.9.1';
+
 const App = () => {
     const { appState, loading, error, recovery, recoveryBusy, recoveryMsg, foundFolders, searchDatabase, applyFolder, selectDatabaseFolder, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted } = useDatabase();
     
@@ -791,6 +797,14 @@ const App = () => {
     const [notebookOpen, setNotebookOpen] = useState(false);
     const notebookRef = useRef<HTMLDivElement>(null);
     const [initialized, setInitialized] = useState(false);
+    const [appVersion, setAppVersion] = useState<string>('');
+
+    // --- Versión de la app (Tauri): la lee del binario real, nunca se desincroniza del .deb instalado ---
+    useEffect(() => {
+        if ('__TAURI_INTERNALS__' in window) {
+            getVersion().then(setAppVersion).catch(() => {});
+        }
+    }, []);
 
     // --- Derived State & Callbacks ---
     useEffect(() => {
@@ -1075,7 +1089,10 @@ const App = () => {
             <header className="bg-white/95 backdrop-blur-sm border-b border-slate-200 px-4 py-2 flex items-center justify-between sticky top-0 z-40">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <span className="font-bold text-lg text-slate-800">Cuaderno Docente</span>
+                        <div className="flex flex-col leading-none">
+                            <span className="font-bold text-lg text-slate-800">Cuaderno Docente</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5">v{appVersion || APP_VERSION_FALLBACK}</span>
+                        </div>
                     </div>
                     <div className="h-6 w-px bg-slate-200"></div>
                     <nav className="flex items-center gap-2">
