@@ -83,7 +83,8 @@ La versión de escritorio incluye **copias de seguridad automáticas**: al cerra
 
 ### 👥 Gestión de Alumnado
 - **Carga masiva** de alumnado: escribe o pega una columna de nombres (Excel, Séneca, Raíces), con revisión previa y sin duplicados
-- **Etiquetas ACNEAE**: anota necesidades educativas (RE, ACS, etc.) con contador por alumno
+- **Etiquetas ACNEAE**: anota necesidades educativas (RE, ACS, REP, etc.) con contador por alumno y bolita de color con la medida más prioritaria
+- **Medidas ACNEAE desde la ficha del alumno/a**: al añadir una anotación puedes marcar las medidas (RE, REP, PAC...) y quedan guardadas de una vez
 - **Anotaciones por alumno** con fecha y marcador de aviso importante (⚠ en la lista y en la ficha)
 - **Vista de resumen** por alumno con todas sus calificaciones
 - **Desglose de nota** clicable: muestra la fórmula matemática exacta de cada calificación
