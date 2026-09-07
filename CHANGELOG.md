@@ -3,6 +3,12 @@
 > Changelog de la app de escritorio (Tauri). Las versiones que mandan son las del `package.json`/`tauri.conf.json` (las que ve el usuario en el `.deb`). La versión web (repo CuadernoProfesorado-v1.0) lleva su propio changelog en `CHANGELOG.md`.
 > Formato: cronológico inverso (lo más reciente arriba). Actualizar SIEMPRE en cada release o commit de cambios.
 
+## [2026-09-07] - v2.10.0: Colores por nivel en horario y calendario, exportación del horario (JSON/CSV) y borrado de planificación
+- **Añadido**: Las clases se colorean automáticamente **por nivel educativo** (azules 1º ESO, naranjas 2º ESO, verdes 3º ESO, violetas 4º ESO, amarillos 1º Bachillerato, rojos 2º Bachillerato) en el horario semanal, la vista Semana y el calendario de sesiones, con **tonalidades diferenciadas** entre grupos del mismo nivel.
+- **Añadido**: **Selector de color por clase** en Ajustes > Clases y Alumnado (botón «Automático» restaura el color de su nivel; bola de color junto a la clase).
+- **Añadido**: Botones **«Exportar Horario (JSON)»** y **«Exportar CSV»** en Ajustes > Horario Semanal, con **diálogo nativo de guardado** (patrón dual `__TAURI_INTERNALS__`). El JSON (esquema v1, incluye la versión de la app en `generador`) se importa en la app móvil MiHorario; el CSV para hojas de cálculo.
+- **Añadido**: Botón **«Borrar planificación»** en la pestaña Programación (UUDD) con confirmación.
+
 ## [2026-09-04] - v2.9.1: Guardado automático de medidas ACNEAE
 - **Corregido**: Las medidas ACNEAE del selector de la pestaña Anotaciones se guardan automáticamente en cuanto se marca o desmarca una casilla, sin necesidad de añadir una anotación con texto (antes solo se persistían al pulsar «Añadir anotación», que exigía comentario).
 - Commits: fix `e602fe7`, bump `6e28347`. CI run 33884393033.

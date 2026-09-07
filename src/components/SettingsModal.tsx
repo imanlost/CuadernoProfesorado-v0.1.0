@@ -12,6 +12,8 @@ import EvaluationToolManager from './EvaluationToolManager';
 import { confirmDialog } from './ConfirmDialog';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
+import { buildHorarioCsv, buildHorarioJson, downloadHorarioCsv, downloadHorarioJson, horarioExportFileName } from '../services/scheduleExport';
+import { buildClassColorMap, OTHER_OCCUPATION_COLOR } from '../services/classColors';
 
 
 interface SettingsModalProps {
@@ -49,6 +51,7 @@ interface SettingsModalProps {
     onRequestFilePermission: () => Promise<boolean>;
     localFileName: string | null;
     filePermissionGranted: boolean;
+    appVersion: string;
 }
 
 type SettingsView = 'classes' | 'schedule' | 'courses' | 'academicConfig' | 'curriculum' | 'planner' | 'evaluationTools' | 'backup';
@@ -62,7 +65,7 @@ const SettingsModal: React.FC<SettingsModalProps> = (props) => {
             case 'classes':
                 return <ClassManager classes={classes} setClasses={setClasses} courses={courses} />;
             case 'schedule':
-                return <ScheduleManager classes={classes} setClasses={setClasses} academicConfiguration={academicConfiguration} />;
+                return <ScheduleManager classes={classes} setClasses={setClasses} academicConfiguration={academicConfiguration} courses={courses} appVersion={props.appVersion} />;
             case 'courses':
                 return <CourseManager courses={courses} setCourses={setCourses} classes={classes} setClasses={setClasses} />;
              case 'academicConfig':
@@ -264,6 +267,11 @@ const ClassManager: React.FC<{
                 </select>
                 {activeClass && (
                     <div className="flex items-center gap-1">
+                        <span
+                            className="inline-block w-4 h-4 rounded-full border border-slate-300 flex-shrink-0"
+                            style={{ backgroundColor: (buildClassColorMap(classes, courses).get(activeClass.id) || OTHER_OCCUPATION_COLOR).backgroundColor }}
+                            title="Color de esta clase en el horario y calendario (edítala para cambiarlo)"
+                        />
                         <button onClick={() => { setClassToEdit(activeClass); setIsClassModalOpen(true); }} className="p-2 rounded-full hover:bg-slate-200" title="Editar clase"><PencilIcon className="w-4 h-4 text-slate-600"/></button>
                         <button onClick={() => handleDeleteClass(activeClass.id)} className="p-2 rounded-full hover:bg-slate-200" title="Eliminar clase"><TrashIcon className="w-4 h-4 text-red-500"/></button>
                     </div>
@@ -437,7 +445,9 @@ const ScheduleManager: React.FC<{
     classes: ClassData[];
     setClasses: (updater: React.SetStateAction<ClassData[]>) => void;
     academicConfiguration: AcademicConfiguration;
-}> = ({ classes, setClasses, academicConfiguration }) => {
+    courses: Course[];
+    appVersion: string;
+}> = ({ classes, setClasses, academicConfiguration, courses, appVersion }) => {
     const daysOfWeek = [{label: 'Lunes', value: 1}, {label: 'Martes', value: 2}, {label: 'Miércoles', value: 3}, {label: 'Jueves', value: 4}, {label: 'Viernes', value: 5}];
     const periods = academicConfiguration.periods || [];
 
@@ -470,12 +480,68 @@ const ScheduleManager: React.FC<{
         return grid;
     }, [classes]);
 
+    const handleExportScheduleJson = async () => {
+        // Patrón dual: en Tauri se guarda con diálogo nativo; en navegador se descarga el archivo.
+        if ('__TAURI_INTERNALS__' in window) {
+            try {
+                const filePath = await save({
+                    defaultPath: horarioExportFileName(academicConfiguration, 'json'),
+                    filters: [{ name: 'JSON', extensions: ['json'] }],
+                });
+                if (!filePath) return; // usuario canceló
+                await writeFile(filePath, new TextEncoder().encode(buildHorarioJson(classes, courses, academicConfiguration, appVersion)));
+                return;
+            } catch (err) {
+                console.error('Tauri save failed', err);
+                return;
+            }
+        }
+        downloadHorarioJson(classes, courses, academicConfiguration, appVersion);
+    };
+
+    const handleExportScheduleCsv = async () => {
+        if ('__TAURI_INTERNALS__' in window) {
+            try {
+                const filePath = await save({
+                    defaultPath: horarioExportFileName(academicConfiguration, 'csv'),
+                    filters: [{ name: 'CSV', extensions: ['csv'] }],
+                });
+                if (!filePath) return; // usuario canceló
+                await writeFile(filePath, new TextEncoder().encode(buildHorarioCsv(classes, courses, academicConfiguration)));
+                return;
+            } catch (err) {
+                console.error('Tauri save failed', err);
+                return;
+            }
+        }
+        downloadHorarioCsv(classes, courses, academicConfiguration);
+    };
+
     return (
         <div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">Horario Semanal de Clases</h3>
             <p className="text-sm text-slate-600 mb-4">
                 Asigna cada clase a su franja horaria correspondiente. Esto se usará para generar el calendario de sesiones.
             </p>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+                <button
+                    onClick={handleExportScheduleJson}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    title="Exportar el horario semanal en JSON (se importa en la app MiHorario y en otros programas de horarios)"
+                >
+                    <ArrowDownTrayIcon className="w-4 h-4 text-slate-500" />
+                    Exportar Horario (JSON)
+                </button>
+                <button
+                    onClick={handleExportScheduleCsv}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    title="Exportar el horario semanal en CSV (para hojas de cálculo y programas que importen CSV)"
+                >
+                    <ArrowDownTrayIcon className="w-4 h-4 text-slate-500" />
+                    Exportar CSV
+                </button>
+                <span className="text-xs text-slate-400">El JSON (esquema v1, incluye la versión de la app) se importa directamente en la app MiHorario del móvil; el CSV es para hojas de cálculo y otros programas de horarios.</span>
+            </div>
             <div className="border border-slate-200 rounded-lg overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-slate-700">

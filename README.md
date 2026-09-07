@@ -51,6 +51,8 @@ La versión de escritorio incluye **copias de seguridad automáticas**: al cerra
 - **Calendario académico** con vistas de mes, semana y día
 - **Festivos y vacaciones** personalizables que el calendario respeta automáticamente
 - **Horario semanal** configurable con recreos y franjas horarias
+- **Colores por nivel educativo**: cada clase recibe un color según su nivel (1º-4º ESO y Bachillerato), tonalidades diferenciadas por grupo y color personalizable por clase
+- **Exportación del horario** en JSON (esquema v1, importable en la app móvil MiHorario) y CSV, guardando con el diálogo nativo del sistema
 - **Unidades Didácticas (UD)** arrastrables con número de sesiones y vinculación a saberes básicos
 - **Colocación automática** de sesiones en días lectivos, esquivando fines de semana y festivos
 - **Sesiones coloreables** para identificar visualmente tipos de clase

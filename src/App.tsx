@@ -784,7 +784,7 @@ type View = 'calendar' | 'gradebook' | 'journal' | 'criteria' | 'competences' | 
 // Versión de respaldo (solo si getVersion() no está disponible, p. ej. `vite dev` sin Tauri).
 // La versión real se lee del binario con getVersion() y siempre manda.
 // REGLA: mantener al día con package.json en cada release (ver skill cuaderno-profesorado-release).
-const APP_VERSION_FALLBACK = '2.9.1';
+const APP_VERSION_FALLBACK = '2.10.0';
 
 const App = () => {
     const { appState, loading, error, recovery, recoveryBusy, recoveryMsg, foundFolders, searchDatabase, applyFolder, selectDatabaseFolder, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted } = useDatabase();
@@ -1193,6 +1193,7 @@ const App = () => {
                 onRequestFilePermission={requestFilePermission}
                 localFileName={fileHandle?.name || null}
                 filePermissionGranted={filePermissionGranted}
+                appVersion={appVersion || APP_VERSION_FALLBACK}
             />
 
             <ExportModal
