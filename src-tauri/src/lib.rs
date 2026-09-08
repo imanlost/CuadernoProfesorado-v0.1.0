@@ -233,13 +233,14 @@ fn load_backup_config() -> Result<(PathBuf, String), String> {
 }
 
 /// Conserva solo las `keep` copias más recientes (por fecha de modificación).
-fn rotate_backups(dir: &Path, keep: usize) -> Result<(), String> {
+/// `prefix` filtra el tipo de copia: "backup_" (sesión) o "backup_diario_" (diaria).
+fn rotate_backups(dir: &Path, keep: usize, prefix: &str) -> Result<(), String> {
     let mut files: Vec<PathBuf> = Vec::new();
     for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with("backup_") && name.ends_with(".db.gpg") {
+        if name.starts_with(prefix) && name.ends_with(".db.gpg") {
             files.push(path);
         }
     }
@@ -259,6 +260,22 @@ fn rotate_backups(dir: &Path, keep: usize) -> Result<(), String> {
         let _ = std::fs::remove_file(f);
     }
     Ok(())
+}
+
+/// Devuelve el prefijo YYYY-MM-DD de un timestamp `YYYY-MM-DD_HH-MM-SS` si es válido.
+fn fecha_de_timestamp(ts: &str) -> Option<String> {
+    let fecha: String = ts.chars().take(10).collect();
+    let valida = fecha.len() == 10
+        && fecha.as_bytes()[4] == b'-'
+        && fecha.as_bytes()[7] == b'-'
+        && fecha.chars().enumerate().all(|(i, c)| {
+            if i == 4 || i == 7 {
+                c == '-'
+            } else {
+                c.is_ascii_digit()
+            }
+        });
+    valida.then_some(fecha)
 }
 
 /// Exporta la base de datos, la cifra con GPG (clave pública) y la guarda en la carpeta de copias.
@@ -299,9 +316,52 @@ fn auto_backup(data: Vec<u8>, workspace: String, timestamp: String) -> Result<St
     }
     let _ = std::fs::remove_file(&plain);
 
-    rotate_backups(&backup_dir, 5)?;
+    // Mejora 2: copia diaria inmutable — si hoy aún no hay copia de día, la crea.
+    // Así, varios cierres seguidos (o reinstalaciones) ya NO pueden borrar el
+    // histórico de días anteriores: la rotación de sesión solo toca `backup_*`.
+    if let Some(fecha) = fecha_de_timestamp(&ts) {
+        let diaria = backup_dir.join(format!("backup_diario_{}_{}.db.gpg", ws, fecha));
+        if !diaria.exists() {
+            let _ = std::fs::copy(&enc, &diaria);
+        }
+    }
+
+    // Rotación de sesión (cierres/30 min): conserva 15 copias recientes.
+    rotate_backups(&backup_dir, 15, "backup_")?;
+    // Rotación diaria inmutable: conserva 60 copias diarias (~2 meses).
+    rotate_backups(&backup_dir, 60, "backup_diario_")?;
 
     Ok(enc.to_string_lossy().into_owned())
+}
+
+/// Limpia la caché HTTP de WebKitGTK (WebKitCache/CacheStorage) del directorio
+/// de datos de la app, SIN tocar IndexedDB (`databases/`), localStorage ni
+/// config. Mejora 3: el frontend la invoca al detectar que la UI arrancó sin
+/// estilos (caché corrupta que servía el index.html viejo con CDN de Tailwind).
+#[tauri::command]
+fn clear_webkit_cache(app: tauri::AppHandle) -> Result<String, String> {
+    let data_dir = data_dir(&app)?;
+    let mut limpiadas: Vec<String> = Vec::new();
+    for sub in ["WebKitCache", "CacheStorage"] {
+        let dir = data_dir.join(sub);
+        if dir.is_dir() {
+            for entry in std::fs::read_dir(&dir).map_err(|e| e.to_string())? {
+                let entry = entry.map_err(|e| e.to_string())?;
+                let path = entry.path();
+                if path.is_dir() {
+                    let _ = std::fs::remove_dir_all(&path);
+                } else {
+                    let _ = std::fs::remove_file(&path);
+                }
+            }
+            limpiadas.push(sub.to_string());
+        }
+    }
+    if limpiadas.is_empty() {
+        Ok("No había caché WebKit que limpiar".into())
+    } else {
+        Ok(format!("Caché WebKit limpiada: {}", limpiadas.join(", ")))
+    }
 }
 
 #[tauri::command]
@@ -319,6 +379,7 @@ pub fn run() {
             apply_database_folder,
             select_database_folder,
             auto_backup,
+            clear_webkit_cache,
             exit_app
         ])
         .run(tauri::generate_context!())

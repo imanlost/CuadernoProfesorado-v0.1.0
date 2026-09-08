@@ -31,6 +31,7 @@ import Logo from './components/Logo';
 import { ToastContainer, installToastAlertBridge } from './components/Toast';
 import { ConfirmDialogHost, confirmDialog } from './components/ConfirmDialog';
 import { save, open } from '@tauri-apps/plugin-dialog';
+import './index.css';
 
 // Sustituye los alert() nativos (descentrados en WebKitGTK) por notificaciones
 // toast. Los confirm() destructivos usan ConfirmDialog (diálogo propio centrado).
@@ -64,6 +65,15 @@ declare global {
         initSqlJs: (config?: any) => Promise<any>;
     }
 }
+
+// sql.js local initialization
+import initSqlJs from 'sql.js';
+const initSQL = async () => {
+  const SQL = await initSqlJs({
+    locateFile: (file) => `/assets/${file}`
+  });
+  return SQL;
+};
 
 // Helper functions for IndexedDB
 const getDBName = () => {
@@ -214,6 +224,7 @@ function useDatabase() {
     
     useEffect(() => {
         const initialize = async () => {
+            let dbPathOk = true;
             try {
                 // Comprobar el estado del enlace de la base de datos antes de abrirla.
                 if ('__TAURI_INTERNALS__' in window) {
@@ -223,9 +234,10 @@ function useDatabase() {
                         setLoading(false);
                         return;
                     }
+                    dbPathOk = true;
                 }
-                // FIX: Use window.initSqlJs directly as it is declared in global interface
-                const SQL = await window.initSqlJs({ locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+                // FIX: Use local sql.js instead of CDN
+                const SQL = await initSQL();
                 const savedDb = await indexedDB.get();
                 let db;
                 if (savedDb) {
@@ -263,7 +275,14 @@ function useDatabase() {
             } catch (err) {
                 console.error("Database initialization failed:", err);
                 if ('__TAURI_INTERNALS__' in window) {
-                    setRecovery(true);
+                    if (dbPathOk) {
+                        // La BD local es válida: el fallo es del motor (p. ej. WASM).
+                        // NO mostrar la pantalla de recuperación (permite reconectar/
+                        // renombrar la carpeta de datos y eso es peligroso con BD sana).
+                        setError("No se pudo iniciar el motor de base de datos. Reinstala la aplicación o contacta con soporte.");
+                    } else {
+                        setRecovery(true);
+                    }
                 } else {
                     setError("No se pudo cargar la base de datos.");
                 }
@@ -323,8 +342,8 @@ function useDatabase() {
     const importDatabase = useCallback(async (buffer: ArrayBuffer) => {
         setLoading(true);
         try {
-            // FIX: Use window.initSqlJs directly as it is declared in global interface
-            const SQL = await window.initSqlJs({ locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+            // FIX: Use local sql.js instead of CDN
+            const SQL = await initSQL();
             const db = new SQL.Database(new Uint8Array(buffer));
             dbRef.current = db;
             const data = loadDataFromDb(db);
@@ -428,7 +447,8 @@ function useDatabase() {
                 if (!filePath) return;
                 const fileData = await readFile(filePath as string);
                 setLoading(true);
-                const SQL = await window.initSqlJs({ locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+                // FIX: Use local sql.js instead of CDN
+                const SQL = await initSQL();
                 const db = new SQL.Database(fileData);
                 dbRef.current = db;
                 const data = loadDataFromDb(db);
@@ -455,7 +475,8 @@ function useDatabase() {
             try {
                 const buffer = await file.arrayBuffer();
                 setLoading(true);
-                const SQL = await window.initSqlJs({ locateFile: (file: string) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}` });
+                // FIX: Use local sql.js instead of CDN
+                const SQL = await initSQL();
                 const db = new SQL.Database(new Uint8Array(buffer));
                 dbRef.current = db;
                 const data = loadDataFromDb(db);
@@ -672,11 +693,12 @@ function useDatabase() {
         try {
             const folders = await invoke<string[]>('search_database_folders');
             setFoundFolders(folders);
-            if (folders.length === 1) {
-                await applyFolder(folders[0]);
-            } else if (folders.length === 0) {
+            if (folders.length === 0) {
                 setRecoveryMsg('No se encontró ninguna base de datos automáticamente. Usa "Elegir carpeta manualmente".');
             }
+            // IMPORTANTE: nunca autoaplicar una carpeta encontrada. En 2.10.1 esto
+            // renombró la BD local válida para conectar un residuo antiguo de
+            // Dropbox. La elección SIEMPRE es explícita del usuario.
         } catch (e) {
             setRecoveryMsg('Error al buscar: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
@@ -784,7 +806,7 @@ type View = 'calendar' | 'gradebook' | 'journal' | 'criteria' | 'competences' | 
 // Versión de respaldo (solo si getVersion() no está disponible, p. ej. `vite dev` sin Tauri).
 // La versión real se lee del binario con getVersion() y siempre manda.
 // REGLA: mantener al día con package.json en cada release (ver skill cuaderno-profesorado-release).
-const APP_VERSION_FALLBACK = '2.10.0';
+const APP_VERSION_FALLBACK = '2.10.2';
 
 const App = () => {
     const { appState, loading, error, recovery, recoveryBusy, recoveryMsg, foundFolders, searchDatabase, applyFolder, selectDatabaseFolder, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted } = useDatabase();
@@ -912,9 +934,13 @@ const App = () => {
                         <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">{recoveryMsg}</div>
                     )}
 
-                    {foundFolders.length > 1 && (
+                    {foundFolders.length > 0 && (
                         <div className="mb-4">
-                            <p className="text-sm font-semibold text-slate-700 mb-2">Se encontraron varias bases de datos. Elige una:</p>
+                            <p className="text-sm font-semibold text-slate-700 mb-2">
+                                {foundFolders.length === 1
+                                    ? 'Se encontró una base de datos. Revísala antes de conectarla:'
+                                    : 'Se encontraron varias bases de datos. Elige una:'}
+                            </p>
                             <div className="flex flex-col gap-2">
                                 {foundFolders.map((f) => (
                                     <button

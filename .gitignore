@@ -25,3 +25,6 @@ dist-ssr
 
 # Rust build
 src-tauri/target/
+
+# WASM de sql.js copiado por scripts/copy-sql-wasm.mjs (no versionar binario)
+public/assets/
