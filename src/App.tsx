@@ -806,7 +806,7 @@ type View = 'calendar' | 'gradebook' | 'journal' | 'criteria' | 'competences' | 
 // Versión de respaldo (solo si getVersion() no está disponible, p. ej. `vite dev` sin Tauri).
 // La versión real se lee del binario con getVersion() y siempre manda.
 // REGLA: mantener al día con package.json en cada release (ver skill cuaderno-profesorado-release).
-const APP_VERSION_FALLBACK = '2.10.2';
+const APP_VERSION_FALLBACK = '2.10.3';
 
 const App = () => {
     const { appState, loading, error, recovery, recoveryBusy, recoveryMsg, foundFolders, searchDatabase, applyFolder, selectDatabaseFolder, updateState, importDatabase, exportDatabase, resetDatabase, startNewCourse, saveToLocalFile, openLocalFile, disconnectLocalFile, requestFilePermission, fileHandle, filePermissionGranted } = useDatabase();
@@ -1049,8 +1049,8 @@ const App = () => {
             const activeClassCriteria = criteria.filter(c => c.courseId === activeClass?.courseId);
             const activeClassCompetences = competences.filter(sc => sc.courseId === activeClass?.courseId);
             return (
-                <>
-                    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg mb-6 w-fit">
+                <div className="flex flex-col h-full min-h-0">
+                    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg mb-6 w-fit shrink-0">
                         <button onClick={() => setActiveView('criteria')} className={`px-3 py-1.5 text-sm font-semibold rounded-md ${activeView === 'criteria' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}>Inf. Criterios</button>
                         <button onClick={() => setActiveView('competences')} className={`px-3 py-1.5 text-sm font-semibold rounded-md ${activeView === 'competences' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}>Inf. Competencias</button>
                         <button onClick={() => setActiveView('key-competences')} className={`px-3 py-1.5 text-sm font-semibold rounded-md ${activeView === 'key-competences' ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`}>Inf. Comp. Clave</button>
@@ -1061,7 +1061,7 @@ const App = () => {
                     {activeView === 'competences' && activeClass && <SpecificCompetenceAchievement classData={activeClass} competences={activeClassCompetences} keyCompetences={keyCompetences} criteria={activeClassCriteria} academicConfiguration={academicConfiguration} />}
                     {activeView === 'key-competences' && activeClass && <KeyCompetenceAchievement classData={activeClass} competences={activeClassCompetences} keyCompetences={keyCompetences} criteria={activeClassCriteria} academicConfiguration={academicConfiguration} />}
                     {activeView === 'descriptors' && activeClass && <DescriptorAchievement classData={activeClass} keyCompetences={keyCompetences} courses={courses} />}
-                </>
+                </div>
             );
         }
 
@@ -1110,9 +1110,12 @@ const App = () => {
         }
     };
 
+    // h-screen + overflow-hidden: el scroll vive en <main>, no en la pagina.
+    // Asi los encabezados fijos de cada vista se apoyan en el area de contenido
+    // y no hace falta compensar la altura del header con desplazamientos a ojo.
     return (
-        <div className="app-container font-sans text-slate-800 bg-slate-100 min-h-screen flex flex-col">
-            <header className="bg-white/95 backdrop-blur-sm border-b border-slate-200 px-4 py-2 flex items-center justify-between sticky top-0 z-40">
+        <div className="app-container font-sans text-slate-800 bg-slate-100 h-screen overflow-hidden flex flex-col">
+            <header className="bg-white/95 backdrop-blur-sm border-b border-slate-200 px-4 py-2 flex items-center justify-between shrink-0 z-40">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                         <div className="flex flex-col leading-none">
@@ -1178,7 +1181,7 @@ const App = () => {
                 </div>
             </header>
             
-            <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <main className="flex-1 min-h-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
                 {renderContent()}
             </main>
             

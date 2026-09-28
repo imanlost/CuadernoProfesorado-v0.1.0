@@ -1,6 +1,6 @@
 {
   "productName": "CuadernoDocente",
-  "version": "2.10.2",
+  "version": "2.10.3",
   "identifier": "com.imanol.lostale.cuaderno-docente",
   "build": {
     "devUrl": "http://localhost:1420",

@@ -1,7 +1,7 @@
 {
   "name": "cuadernoprofesorado-v2",
   "private": true,
-  "version": "2.10.2",
+  "version": "2.10.3",
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-sql-wasm.mjs",
@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
-    "@google/genai": "^1.26.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2",

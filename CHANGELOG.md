@@ -3,6 +3,16 @@
 > Changelog de la app de escritorio (Tauri). Las versiones que mandan son las del `package.json`/`tauri.conf.json` (las que ve el usuario en el `.deb`). La versión web (repo CuadernoProfesorado-v1.0) lleva su propio changelog en `CHANGELOG.md`.
 > Formato: cronológico inverso (lo más reciente arriba). Actualizar SIEMPRE en cada release o commit de cambios.
 
+## [2026-09-28] - v2.10.3: Encabezados fijos al desplazar (calendario, calificaciones, informes y diario de clase)
+- **Mejorado**: Las **cabeceras de las pantallas quedan fijas al desplazar** el contenido (antes se desplazaba todo y se perdía de vista el contexto). Ahora, mientras se revisan las filas de abajo, se sigue viendo en todo momento la tarea o el criterio sobre el que se está trabajando:
+  - **Calendario**: quedan fijos el mes con sus flechas y el botón «Hoy», los botones de vista (Mes/Semana/Día) y la línea de días de la semana (Lun-Vie); en la vista Semana, la franja con las fechas de los cinco días.
+  - **Calificaciones**: quedan fijas las pestañas de clase y de evaluación y la fila de nombres de **Tareas** (la columna Alumn@ ya lo estaba). La tabla tiene ahora su propio desplazamiento vertical y horizontal.
+  - **Informes**: en las cuatro pestañas (Criterios, Competencias Específicas, Competencias Clave y Descriptores Operativos) queda fija la cabecera con el título, el selector de periodo y la fila de criterios, competencias o descriptores.
+  - **Diario de Clase**: queda fijo el bloque con el título, las flechas de navegación y la fecha.
+- **Mejorado**: el desplazamiento pasa del borde de la ventana al panel de contenido: la cabecera general («Cuaderno Docente») y el menú lateral ya no se mueven nunca.
+- **Interno**: solo cambios de maquetación (clases de Tailwind); sin ninguna modificación en los datos, en los cálculos ni en los archivos guardados.
+- **Retirado**: dependencia `@google/genai`, que ya no se usaba (la app de escritorio funciona sin conexión y sin CDN de IA).
+
 ## [2026-09-08] - v2.10.2: Hotfix crítico — WASM de sql.js correcto y recuperación blindada
 - **Corregido (crítico)**: El build 2.10.1 pedía `sql-wasm-browser.wasm` (el que resuelve Vite para el import `sql.js`) pero el script solo copiaba `sql-wasm.wasm`. El fetch daba 404 → `initSqlJs()` lanzaba → la app entraba en la pantalla de "No se pudo cargar la base de datos" **aunque la BD fuera válida**. Ahora el script copia ambos WASM y la app arranca sin red.
 - **Corregido (crítico)**: El flujo de recuperación **ya no se muestra si la BD local es válida** y el fallo es del motor (WASM): se distingue `check_database_path` (BD ausente → recuperación) de un error de inicialización (BD sana → mensaje de error, sin tocar la carpeta de datos).
