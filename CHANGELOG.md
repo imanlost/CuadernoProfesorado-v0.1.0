@@ -3,6 +3,20 @@
 > Changelog de la app de escritorio (Tauri). Las versiones que mandan son las del `package.json`/`tauri.conf.json` (las que ve el usuario en el `.deb`). La versión web (repo CuadernoProfesorado-v1.0) lleva su propio changelog en `CHANGELOG.md`.
 > Formato: cronológico inverso (lo más reciente arriba). Actualizar SIEMPRE en cada release o commit de cambios.
 
+## [2026-11-03] - v2.10.5: el cursor también en el diario y en las sesiones del calendario
+- **Corregido**: al **Calificar**, el cursor no caía en «Calificación Única» sino en el primer criterio (faltaba una referencia en el campo de nota única). Ahora cae donde debe.
+- **Añadido**: **autofoco en el Diario de Clase**: al entrar en la pestaña (o al cambiar de fecha) el cursor ya está en el cuadro de anotaciones del primer bloque del día.
+- **Añadido**: **autofoco al abrir una sesión del calendario**: el cursor va directo a las anotaciones del diario, sin clicar.
+- **Interno**: sin cambios en datos ni en cálculos.
+
+## [2026-11-03] - v2.10.4: Color de la nota de evaluación, autofoco y pequeñas incomodidades de uso
+- **Corregido**: la columna **Nota Ev.** salía con **fondo gris** en casi todas las filas (solo se veían las notas «Bien», en amarillo). La celda llevaba un color de fondo fijo (`bg-slate-100`) junto al color del semáforo; al competir dos clases de fondo gana la que va después en la hoja de estilos, y por eso el gris tapaba el verde, el lima, el naranja y el rojo. Ahora el gris queda solo como respaldo cuando no hay nota. Afecta a las tres copias del código (escritorio, tauri y web).
+- **Mejorado**: al abrir las ventanas de **Nueva/Editar Tarea**, **Calificar** y **Nueva Tarea del calendario**, el cursor ya está listo para escribir (en Calificar, directamente en «Calificación Única»). El cursor se coloca al final del texto existente, sin seleccionarlo, para no machacar nada al editar.
+- **Corregido**: la ventana **ya no se cierra** al seleccionar texto con el ratón y soltar fuera del recuadro. Antes, cualquier clic que terminara en el fondo cerraba el modal; ahora solo cierra si el clic empezó en el fondo. Se ha arreglado en el componente común, así que vale para todas las ventanas de la app.
+- **Mejorado**: las **sesiones de una unidad didáctica se pueden reordenar arrastrando** desde el asa de puntos que aparece a la izquierda de cada sesión, además de con las flechas de siempre.
+- **Corregido**: la **viñeta suelta** que aparecía a la izquierda de «Copia de Seguridad» en Ajustes (era una etiqueta de lista fuera de su lista) y el descuadre de esa casilla. El acceso a Copia de Seguridad se muestra ahora en **ámbar**, para distinguirlo del resto de la configuración.
+- **Interno**: sin cambios en datos ni en cálculos.
+
 ## [2026-09-28] - v2.10.3: Encabezados fijos al desplazar (calendario, calificaciones, informes y diario de clase)
 - **Mejorado**: Las **cabeceras de las pantallas quedan fijas al desplazar** el contenido (antes se desplazaba todo y se perdía de vista el contexto). Ahora, mientras se revisan las filas de abajo, se sigue viendo en todo momento la tarea o el criterio sobre el que se está trabajando:
   - **Calendario**: quedan fijos el mes con sus flechas y el botón «Hoy», los botones de vista (Mes/Semana/Día) y la línea de días de la semana (Lun-Vie); en la vista Semana, la franja con las fechas de los cinco días.
