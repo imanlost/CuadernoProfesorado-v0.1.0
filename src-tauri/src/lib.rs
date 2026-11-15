@@ -236,10 +236,17 @@ fn load_backup_config() -> Result<(PathBuf, String), String> {
 /// `prefix` filtra el tipo de copia: "backup_" (sesión) o "backup_diario_" (diaria).
 fn rotate_backups(dir: &Path, keep: usize, prefix: &str) -> Result<(), String> {
     let mut files: Vec<PathBuf> = Vec::new();
+    // "backup_diario_*" también empieza por "backup_", así que hay que separar
+    // los dos grupos de forma explícita o la rotación de sesión se lleva por
+    // delante las copias diarias (el histórico de días desaparecía).
+    let quiere_diarias = prefix == "backup_diario_";
     for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("backup_diario_") != quiere_diarias {
+            continue;
+        }
         if name.starts_with(prefix) && name.ends_with(".db.gpg") {
             files.push(path);
         }
@@ -326,10 +333,10 @@ fn auto_backup(data: Vec<u8>, workspace: String, timestamp: String) -> Result<St
         }
     }
 
-    // Rotación de sesión (cierres/30 min): conserva 15 copias recientes.
-    rotate_backups(&backup_dir, 15, "backup_")?;
-    // Rotación diaria inmutable: conserva 60 copias diarias (~2 meses).
-    rotate_backups(&backup_dir, 60, "backup_diario_")?;
+    // Rotación de sesión (cierres/30 min): conserva 5 copias recientes.
+    rotate_backups(&backup_dir, 5, "backup_")?;
+    // Rotación diaria inmutable: conserva 15 copias diarias (~2 semanas de curso).
+    rotate_backups(&backup_dir, 15, "backup_diario_")?;
 
     Ok(enc.to_string_lossy().into_owned())
 }

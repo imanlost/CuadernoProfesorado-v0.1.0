@@ -3,6 +3,11 @@
 > Changelog de la app de escritorio (Tauri). Las versiones que mandan son las del `package.json`/`tauri.conf.json` (las que ve el usuario en el `.deb`). La versión web (repo CuadernoProfesorado-v1.0) lleva su propio changelog en `CHANGELOG.md`.
 > Formato: cronológico inverso (lo más reciente arriba). Actualizar SIEMPRE en cada release o commit de cambios.
 
+## [2026-11-15] - v2.10.6: la copia diaria ya no se borra y menos copias de sesión
+- **Corregido**: la limpieza de copias de sesión contaba también las copias diarias (su nombre empieza igual, `backup_diario_`), así que al acumular 15 copias de sesión se llevaba por delante las diarias y el histórico de días se perdía sin avisar. Ahora cada grupo se rota por separado.
+- **Cambiado**: se conservan **5 copias de sesión** (antes 15) y **15 copias diarias** (antes 60). Con el uso diario de curso, dos semanas de histórico diario son suficientes.
+- **Interno**: sin cambios en datos ni en cálculos.
+
 ## [2026-11-03] - v2.10.5: el cursor también en el diario y en las sesiones del calendario
 - **Corregido**: al **Calificar**, el cursor no caía en «Calificación Única» sino en el primer criterio (faltaba una referencia en el campo de nota única). Ahora cae donde debe.
 - **Añadido**: **autofoco en el Diario de Clase**: al entrar en la pestaña (o al cambiar de fecha) el cursor ya está en el cuadro de anotaciones del primer bloque del día.
