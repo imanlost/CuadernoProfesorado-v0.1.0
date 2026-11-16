@@ -1,7 +1,7 @@
 {
   "name": "cuadernoprofesorado-v2",
   "private": true,
-  "version": "2.10.6",
+  "version": "2.10.8",
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-sql-wasm.mjs",
@@ -19,6 +19,8 @@
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-fs": "^2",
     "@types/sql.js": "^1.4.11",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "jszip": "^3.10.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

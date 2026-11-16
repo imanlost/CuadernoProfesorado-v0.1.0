@@ -3,6 +3,18 @@
 > Changelog de la app de escritorio (Tauri). Las versiones que mandan son las del `package.json`/`tauri.conf.json` (las que ve el usuario en el `.deb`). La versión web (repo CuadernoProfesorado-v1.0) lleva su propio changelog en `CHANGELOG.md`.
 > Formato: cronológico inverso (lo más reciente arriba). Actualizar SIEMPRE en cada release o commit de cambios.
 
+## [2026-11-16] - v2.10.8: el boletín cabe en una hoja por alumno
+- **Mejorado**: con un currículo completo (16 criterios con textos largos, 8 competencias específicas y 8 clave) el boletín de cada alumno salía en **dos hojas**. Ahora los **criterios de evaluación y las competencias específicas van a dos columnas** y las descripciones se recortan por palabras (150 caracteres), de modo que **cada alumno ocupa una sola hoja**.
+- **Mejorado**: el pie de cada hoja identifica al alumno y su bloque (`García López, Ana · 3ºG · 1ª Evaluación` — `hoja 1 de 1`), para separar o imprimir hojas sueltas sin dudas. Se elimina la doble numeración «Página X de Y», que se contradecía con el número de hoja del boletín.
+- **Interno**: sin cambios en datos ni en cálculos.
+
+## [2026-11-16] - v2.10.7: boletines por alumno en PDF, informe de medidas y desglose de la nota final
+- **Añadido**: **Boletines por alumno/a en PDF** en Exportar Informes. Un PDF por clase y evaluación seleccionada, con **una hoja nueva por alumno/a** (se puede imprimir una hoja suelta o trocear el PDF): desglose de la nota de la evaluación (categorías, pesos, actividades y fórmula), criterios de evaluación, competencias específicas y competencias clave.
+- **Añadido**: **Informe de Medidas y Anotaciones** (CSV), un fichero por clase con las medidas ACNEAE de cada alumno/a, el número de anotaciones y su texto fechado, y una columna de avisos importantes. Incluye también al alumnado **sin medidas** («Sin medidas»), para usarlo como lista de control.
+- **Mejorado**: el desglose de la **Nota Final de Curso** muestra ahora una tabla con la nota de cada evaluación, su peso y lo que aporta a la media (marcando las recuperadas) y la fórmula aplicada con el resultado. Antes solo repetía los pesos.
+- **Mejorado**: al pasar el ratón por el punto ACNEAE, las etiquetas salen **ordenadas por prioridad** (PAC > PRE > ACS > ABS > RE… y REP siempre la última), sin el texto «(Prioritario: …)». El color del punto no cambia.
+- **Interno**: sin cambios en el modelo de datos ni en los cálculos. Dependencias nuevas: `jspdf` y `jspdf-autotable`, que solo se cargan al generar boletines (carga diferida).
+
 ## [2026-11-15] - v2.10.6: la copia diaria ya no se borra y menos copias de sesión
 - **Corregido**: la limpieza de copias de sesión contaba también las copias diarias (su nombre empieza igual, `backup_diario_`), así que al acumular 15 copias de sesión se llevaba por delante las diarias y el histórico de días se perdía sin avisar. Ahora cada grupo se rota por separado.
 - **Cambiado**: se conservan **5 copias de sesión** (antes 15) y **15 copias diarias** (antes 60). Con el uso diario de curso, dos semanas de histórico diario son suficientes.
